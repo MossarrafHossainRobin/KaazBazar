@@ -6,6 +6,8 @@ import ServicesPage from "@/components/ServicesPage";
 import CategoryFilters from "@/components/CategoryFilters";
 import UserDashboard from "@/components/UserDashboard";
 import LoginModal from "@/components/LoginModal";
+import HeroSection from "@/components/HeroSection";
+import CTA from "@/components/CTA";
 import { auth, onAuthStateChanged, signOut } from "@/lib/firebase";
 
 export default function Home() {
@@ -57,8 +59,8 @@ export default function Home() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <div className="w-12 h-12 border-2 border-black border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+          <p className="text-gray-600">লোড হচ্ছে...</p>
         </div>
       </div>
     );
@@ -75,75 +77,13 @@ export default function Home() {
       />
       
       <main className="flex-grow">
-        {/* Hero Section - Fiverr Style */}
-        <section className="bg-gradient-to-r from-green-600 to-green-700 text-white py-16">
-          <div className="container mx-auto px-4">
-            <div className="max-w-4xl mx-auto text-center">
-              <h1 className="text-4xl md:text-5xl font-bold mb-4">
-                Find the perfect service for your business
-              </h1>
-              <p className="text-xl mb-8 text-green-50">
-                Connect with skilled professionals ready to help you grow
-              </p>
-              
-              {/* Big Search Bar - Fiverr Style */}
-              <div className="bg-white rounded-lg shadow-lg p-1 flex flex-col md:flex-row gap-2">
-                <input
-                  type="text"
-                  placeholder="What service are you looking for?"
-                  className="flex-1 px-6 py-3 rounded-lg text-gray-800 placeholder-gray-400 focus:outline-none"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                <button className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 transition font-semibold">
-                  Search
-                </button>
-              </div>
-              
-              {/* Popular Searches */}
-              <div className="mt-6 flex flex-wrap justify-center gap-2">
-                <span className="text-sm text-green-100">Popular:</span>
-                {['Logo Design', 'WordPress', 'Data Entry', 'SEO', 'Social Media'].map((item) => (
-                  <button
-                    key={item}
-                    onClick={() => setSearchQuery(item)}
-                    className="text-sm bg-white bg-opacity-20 hover:bg-opacity-30 px-3 py-1 rounded-full transition"
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* Hero Section */}
+        <HeroSection 
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+        />
 
-        {/* Trust Section - Fiverr Style */}
-        <section className="py-12 border-b border-gray-100">
-          <div className="container mx-auto px-4">
-            <div className="flex flex-wrap justify-center items-center gap-8 md:gap-12">
-              <div className="flex items-center gap-2">
-                <svg className="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-                <span className="text-gray-700">Secure Payments</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <svg className="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-                <span className="text-gray-700">24/7 Support</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <svg className="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-                <span className="text-gray-700">Verified Professionals</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* User Dashboard Section - Shows first when logged in */}
+        {/* User Dashboard Section */}
         {currentUser && (
           <div className="container mx-auto px-4 py-8">
             <UserDashboard currentUser={currentUser} />
@@ -151,7 +91,7 @@ export default function Home() {
         )}
         
         {/* Category Filters */}
-        <div className="container mx-auto px-4 py-8">
+        <div className="container mx-auto px-4 py-6">
           <CategoryFilters 
             selectedCategory={selectedCategory}
             onCategoryChange={setSelectedCategory}
@@ -160,12 +100,12 @@ export default function Home() {
         
         {/* Services Section */}
         <div className="container mx-auto px-4 pb-16">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">
+          <div className="flex justify-between items-center mb-5">
+            <h2 className="text-xl font-bold text-black">
               {currentUser ? "Recommended for you" : "Popular services near you"}
             </h2>
-            <button className="text-green-600 hover:text-green-700 font-semibold">
-              View All →
+            <button className="text-gray-600 hover:text-black font-medium text-sm">
+              View all →
             </button>
           </div>
           
@@ -177,61 +117,48 @@ export default function Home() {
           />
         </div>
 
-        {/* Features Section - Fiverr Style */}
-        <section className="bg-gray-50 py-16">
+        {/* Features Section */}
+        <section className="bg-gray-50 py-12 border-t border-gray-200">
           <div className="container mx-auto px-4">
-            <h2 className="text-3xl font-bold text-center text-gray-800 mb-12">
-              Why choose Kaazbazar?
+            <h2 className="text-2xl font-bold text-center text-black mb-8">
+              Why Kaazbazar?
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="text-center">
-                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-14 h-14 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-7 h-7 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Secure Transactions</h3>
-                <p className="text-gray-600">Your payments and information are always protected</p>
+                <h3 className="text-lg font-semibold mb-1">Secure transactions</h3>
+                <p className="text-gray-600 text-sm">Your payments and information are completely secure.</p>
               </div>
               <div className="text-center">
-                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-14 h-14 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-7 h-7 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Quality Professionals</h3>
-                <p className="text-gray-600">Hand-picked experts ready to deliver excellence</p>
+                <h3 className="text-lg font-semibold mb-1">Skilled professionals</h3>
+                <p className="text-gray-600 text-sm">Selected experts will work for you</p>
               </div>
               <div className="text-center">
-                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-14 h-14 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-7 h-7 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Fast Delivery</h3>
-                <p className="text-gray-600">Get your projects done quickly and efficiently</p>
+                <h3 className="text-lg font-semibold mb-1">Fast service</h3>
+                <p className="text-gray-600 text-sm">Get your work done quickly and accurately.</p>
               </div>
             </div>
           </div>
         </section>
 
-        {/* CTA Section - Fiverr Style */}
-        <section className="bg-green-600 text-white py-16">
-          <div className="container mx-auto px-4 text-center">
-            <h2 className="text-3xl font-bold mb-4">Ready to get started?</h2>
-            <p className="text-xl mb-8 text-green-100">
-              Join thousands of satisfied customers on Kaazbazar
-            </p>
-            {!currentUser && (
-              <button
-                onClick={() => setShowLoginModal(true)}
-                className="bg-white text-green-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition"
-              >
-                Sign Up Now
-              </button>
-            )}
-          </div>
-        </section>
+        {/* CTA Component - শুধু নন-লগইন ইউজারের জন্য দেখাবে */}
+        {!currentUser && (
+          <CTA onJoinClick={() => setShowLoginModal(true)} />
+        )}
       </main>
       
       <Footer />

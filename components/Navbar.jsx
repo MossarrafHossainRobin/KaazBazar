@@ -1,86 +1,126 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Search, User, LogOut, Menu, X, Briefcase, MessageCircle, Home } from "lucide-react";
+import { Search, User, LogOut, Menu, X, Briefcase, MessageCircle, Home, Globe, ChevronDown, Sparkles, TrendingUp, Award } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
 
 export default function Navbar({ currentUser, onLogout, onShowLogin, searchQuery, setSearchQuery }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showSearchBar, setShowSearchBar] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const { language, toggleLanguage, t } = useLanguage();
+
+  // Handle scroll event to show/hide search bar
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 50) {
+        setIsScrolled(true);
+        setShowSearchBar(true);
+      } else {
+        setIsScrolled(false);
+        setShowSearchBar(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   return (
-    <nav className="bg-white shadow-sm sticky top-0 z-50 border-b border-gray-100">
+    <nav className={`bg-white sticky top-0 z-50 transition-all duration-500 ${isScrolled ? 'shadow-md border-b-0' : 'border-b border-gray-200'}`}>
       <div className="container mx-auto px-4">
-        <div className="flex justify-between items-center h-16">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between py-3 md:py-0">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2">
-            <span className="text-2xl font-bold text-green-600">
-              Kaazbazar
-            </span>
-            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
-              Local
-            </span>
-          </Link>
+          <div className="flex items-center justify-between">
+            <Link href="/" className="relative group">
+              <span className="text-2xl md:text-3xl font-bold text-black group-hover:text-gray-700 transition-colors duration-300">
+                Kaazbazar
+              </span>
+            </Link>
 
-          {/* Desktop Navigation Links */}
-          <div className="hidden md:flex items-center space-x-6">
-            <Link href="/" className="text-gray-600 hover:text-green-600 transition flex items-center gap-1">
-              <Home className="w-4 h-4" /> Home
-            </Link>
-            <Link href="/services" className="text-gray-600 hover:text-green-600 transition flex items-center gap-1">
-              <Briefcase className="w-4 h-4" /> Services
-            </Link>
-            {currentUser && (
-              <Link href="/messages" className="text-gray-600 hover:text-green-600 transition flex items-center gap-1">
-                <MessageCircle className="w-4 h-4" /> Messages
-              </Link>
-            )}
+            {/* Mobile menu button */}
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="md:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 transition-colors duration-300"
+            >
+              {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
           </div>
-          
-          {/* Desktop User Section */}
-          <div className="hidden md:flex items-center space-x-4">
+
+          {/* Search Bar */}
+          <div className={`hidden md:block flex-1 max-w-2xl mx-8 transition-all duration-500 ${showSearchBar ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-5 pointer-events-none'}`}>
+            <div className="relative">
+              <input
+                type="text"
+                className="w-full px-5 py-2.5 border-2 border-gray-300 rounded-full focus:ring-2 focus:ring-gray-400 focus:border-gray-400 outline-none text-black placeholder-gray-400 text-base"
+                placeholder={t.searchPlaceholder}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <Search className="absolute right-3 top-2.5 text-gray-400 w-5 h-5" />
+            </div>
+          </div>
+
+          {/* Desktop Right Section */}
+          <div className="hidden md:flex items-center space-x-6">
+            {/* Explore Link */}
+            <Link href="/explore" className="text-black hover:text-gray-600 transition-colors duration-300 font-medium">
+              {t.explore}
+            </Link>
+            
+            {/* Become a Service Provider Link */}
+            <Link href="/become-provider" className="text-black hover:text-gray-600 transition-colors duration-300 font-medium">
+              {t.becomeProvider}
+            </Link>
+            
+            {/* Language Toggle Button */}
+            <button
+              onClick={toggleLanguage}
+              className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-full hover:border-gray-500 transition-all duration-300 text-black"
+            >
+              <Globe className="w-4 h-4" />
+              <span className="text-sm font-medium">
+                {language === "english" ? "EN" : "BN"}
+              </span>
+            </button>
+            
+            {/* Sign In Button */}
             {currentUser ? (
               <div className="relative group">
-                <button className="flex items-center space-x-2 focus:outline-none">
+                <button className="flex items-center space-x-2 focus:outline-none group">
                   {currentUser.photoURL ? (
                     <img 
                       src={currentUser.photoURL} 
                       alt={currentUser.name}
-                      className="w-8 h-8 rounded-full object-cover"
+                      className="w-8 h-8 rounded-full object-cover ring-2 ring-transparent group-hover:ring-gray-400 transition-all duration-300"
                     />
                   ) : (
-                    <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center text-white font-bold">
+                    <div className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center text-white font-bold group-hover:bg-gray-700 transition-all duration-300">
                       {currentUser.name.charAt(0).toUpperCase()}
                     </div>
                   )}
-                  <span className="text-gray-700">{currentUser.name}</span>
+                  <span className="text-black group-hover:text-gray-600 transition-colors duration-300 font-medium">{currentUser.name}</span>
                 </button>
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 hidden group-hover:block border border-gray-100">
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 hidden group-hover:block border border-gray-200">
                   <Link href="/profile" className="block px-4 py-2 text-gray-700 hover:bg-gray-50">
-                    <User className="inline w-4 h-4 mr-2" /> Profile
+                    <User className="inline w-4 h-4 mr-2" /> {t.profile}
                   </Link>
                   <Link href="/orders" className="block px-4 py-2 text-gray-700 hover:bg-gray-50">
-                    My Orders
+                    {t.myOrders}
                   </Link>
                   <hr className="my-1" />
                   <button onClick={onLogout} className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-50">
-                    <LogOut className="inline w-4 h-4 mr-2" /> Logout
+                    <LogOut className="inline w-4 h-4 mr-2" /> {t.logout}
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={onShowLogin}
-                  className="text-gray-600 hover:text-green-600 transition"
-                >
-                  Sign In
-                </button>
-                <button
-                  onClick={onShowLogin}
-                  className="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700 transition font-semibold"
-                >
-                  Join
-                </button>
-              </div>
+              <button
+                onClick={onShowLogin}
+                className="text-black hover:text-gray-600 transition-colors duration-300 font-medium"
+              >
+                {t.signIn}
+              </button>
             )}
           </div>
 
@@ -93,41 +133,58 @@ export default function Navbar({ currentUser, onLogout, onShowLogin, searchQuery
           </button>
         </div>
 
+        {/* Mobile Search Bar */}
+        <div className={`md:hidden transition-all duration-500 overflow-hidden ${showSearchBar ? 'max-h-20 opacity-100 mt-2 pb-3' : 'max-h-0 opacity-0'}`}>
+          <div className="relative">
+            <input
+              type="text"
+              className="w-full px-5 py-2.5 border-2 border-gray-300 rounded-full focus:ring-2 focus:ring-gray-400 focus:border-gray-400 outline-none text-black placeholder-gray-400 text-sm"
+              placeholder={t.searchPlaceholder}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <Search className="absolute right-3 top-2.5 text-gray-400 w-4 h-4" />
+          </div>
+        </div>
+
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden py-4 border-t">
-            <Link href="/" className="block py-2 text-gray-600 hover:text-green-600">
-              Home
+          <div className="md:hidden py-4 border-t border-gray-200 space-y-2">
+            <Link href="/" className="block py-2 text-black hover:text-gray-600">
+              {t.home}
             </Link>
-            <Link href="/services" className="block py-2 text-gray-600 hover:text-green-600">
-              Services
+            <Link href="/explore" className="block py-2 text-black hover:text-gray-600">
+              {t.explore}
             </Link>
-            {currentUser && (
-              <Link href="/messages" className="block py-2 text-gray-600 hover:text-green-600">
-                Messages
-              </Link>
-            )}
+            <Link href="/become-provider" className="block py-2 text-black hover:text-gray-600">
+              {t.becomeProvider}
+            </Link>
+            
+            {/* Mobile Language Toggle */}
+            <button
+              onClick={toggleLanguage}
+              className="flex items-center gap-2 py-2 text-black"
+            >
+              <Globe className="w-4 h-4" />
+              <span>{language === "english" ? "English" : "বাংলা"}</span>
+            </button>
+            
             {currentUser ? (
               <>
-                <Link href="/profile" className="block py-2 text-gray-600">
-                  Profile
+                <Link href="/messages" className="block py-2 text-black">
+                  {t.messages}
                 </Link>
-                <Link href="/orders" className="block py-2 text-gray-600">
-                  My Orders
+                <Link href="/profile" className="block py-2 text-black">
+                  {t.profile}
                 </Link>
                 <button onClick={onLogout} className="block w-full text-left py-2 text-red-600">
-                  Logout
+                  {t.logout}
                 </button>
               </>
             ) : (
-              <>
-                <button onClick={onShowLogin} className="block w-full text-left py-2 text-green-600 font-semibold">
-                  Sign In
-                </button>
-                <button onClick={onShowLogin} className="block w-full text-left py-2 bg-green-600 text-white px-4 rounded-lg mt-2">
-                  Join Now
-                </button>
-              </>
+              <button onClick={onShowLogin} className="block w-full text-left py-2 text-black font-medium">
+                {t.signIn}
+              </button>
             )}
           </div>
         )}
