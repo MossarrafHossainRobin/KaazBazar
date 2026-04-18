@@ -185,6 +185,24 @@ const translations = {
     joinHere: "জয়েন করুন",
     termsAgreement: "জয়েন করার মাধ্যমে, আপনি কাজবাজারের টার্মস অফ সার্ভিসে সম্মত হচ্ছেন",
 
+      // Why Kaazbazar Section
+    whyKaazbazar: "Why Kaazbazar?",
+    secureTransactions: "Secure transactions",
+    secureTransactionsDesc: "Your payments and information are completely secure.",
+    skilledProfessionals: "Skilled professionals",
+    skilledProfessionalsDesc: "Selected experts will work for you",
+    fastService: "Fast service",
+    fastServiceDesc: "Get your work done quickly and accurately.",
+
+        // Why Kaazbazar Section
+    whyKaazbazar: "কেন কাজবাজার?",
+    secureTransactions: "নিরাপদ লেনদেন",
+    secureTransactionsDesc: "আপনার পেমেন্ট এবং তথ্য সম্পূর্ণ সুরক্ষিত।",
+    skilledProfessionals: "দক্ষ পেশাদার",
+    skilledProfessionalsDesc: "বাছাই করা বিশেষজ্ঞরা আপনার জন্য কাজ করবেন",
+    fastService: "দ্রুত সেবা",
+    fastServiceDesc: "আপনার কাজ দ্রুত এবং নির্ভুলভাবে সম্পন্ন করুন।",
+
         // CTA Section
     readyToStart: "শুরু করতে প্রস্তুত?",
     joinNowText: "কাজবাজারে হাজারো সন্তুষ্ট গ্রাহকের সাথে যোগ দিন",
