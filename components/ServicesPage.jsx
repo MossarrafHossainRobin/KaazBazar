@@ -1,110 +1,150 @@
-import { Zap, Droplets, Hammer, Sparkles, Palette, Wrench, ChevronRight } from 'lucide-react';
+"use client";
+import { useState, useEffect } from "react";
+import { Star, MapPin, Clock, MessageCircle, Info, TrendingUp } from "lucide-react";
 
-// --- Sub-Component for each service card ---
-const ServiceCard = ({ service }) => {
-  // Map string icon names to Lucide components
-  const IconComponent = {
-    'Zap': Zap,
-    'Droplets': Droplets,
-    'Hammer': Hammer,
-    'Sparkles': Sparkles,
-    'Palette': Palette,
-    'Wrench': Wrench,
-  }[service.icon];
-
-  return (
-    <a
-      href={service.href}
-      className="block group relative bg-white rounded-3xl shadow-xl 
-                 overflow-hidden transition-all duration-500 ease-out-back transform 
-                 hover:scale-[1.04] hover:shadow-2xl 
-                 focus:outline-none focus:ring-4 focus:ring-purple-400 focus:ring-opacity-75"
-      aria-label={`Explore ${service.title}`}
-    >
-      {/* Dynamic colored top border */}
-      <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-purple-500 to-indigo-500 group-hover:from-purple-600 group-hover:to-indigo-600 transition-all duration-300"></div>
-
-      <div className="p-8 flex flex-col justify-between h-full relative z-10">
-        
-        {/* Top Section: Icon and Title */}
-        <div className="flex items-start mb-6">
-          <div className="p-4 mr-4 rounded-full bg-gradient-to-br from-purple-600 to-indigo-600 text-white shadow-lg 
-                        group-hover:from-purple-700 group-hover:to-indigo-700 transition-all duration-300 
-                        transform group-hover:rotate-6 group-hover:scale-110">
-            {IconComponent && <IconComponent className="w-9 h-9" />} {/* Larger icons */}
-          </div>
-          <h3 className="text-2xl font-extrabold text-gray-900 mt-1.5 leading-tight">
-            {service.title}
-          </h3>
-        </div>
-
-        {/* Key Tasks/Tasks List */}
-        <ul className="text-gray-700 mb-8 space-y-3.5 text-base font-medium"> {/* Larger font, more space */}
-          {service.tasks.map((task, i) => (
-            <li key={i} className="flex items-start">
-              <span className="mr-3 mt-1.5 w-2.5 h-2.5 rounded-full bg-purple-400 flex-shrink-0"></span> {/* Larger bullet */}
-              {task}
-            </li>
-          ))}
-        </ul>
-
-        {/* Action/Call to Action */}
-        <div className="flex items-center text-purple-600 font-bold text-lg group-hover:text-purple-800 transition-colors">
-          <span>{service.buttonText}</span>
-          <ChevronRight className="w-6 h-6 ml-2 transition-transform group-hover:translate-x-2" /> {/* Larger arrow, more animation */}
-        </div>
-      </div>
-    </a>
-  );
-};
-
-
-// --- Main Component ---
-export default function ServicesPage({ pageTitle, pageSubtitle }) {
- const services = [
-    { icon: "Zap", title: "Electrical Services", tasks: ["Wiring & rewiring", "Fan & light installation", "Switch & socket repair", "Electrical troubleshooting"], href: "/services/electricians", buttonText: "Explore Electricians" },
-    { icon: "Droplets", title: "Plumbing Services", tasks: ["Pipe repair & installation", "Bathroom fitting", "Water heater service", "Drain cleaning"], href: "/services/plumbers", buttonText: "Explore Plumbers" },
-    { icon: "Hammer", title: "Carpentry Services", tasks: ["Furniture repair", "Custom woodwork", "Door & window fitting", "Kitchen cabinet installation"], href: "/services/carpenters", buttonText: "Explore Carpenters" },
-    { icon: "Sparkles", title: "Cleaning Services", tasks: ["Deep house cleaning", "Office cleaning", "Post-construction cleanup", "Regular maintenance"], href: "/services/cleaners", buttonText: "Explore Cleaners" },
-    { icon: "Palette", title: "Painting Services", tasks: ["Interior & exterior painting", "Wall texture work", "Color consultation", "Waterproofing solutions"], href: "/services/painters", buttonText: "Explore Painters" },
-    { icon: "Wrench", title: "Appliance Repair & Handyman", tasks: ["Appliance diagnostics & repair", "Furniture assembly", "General home maintenance", "Emergency repairs"], href: "/services/appliance-repair", buttonText: "Explore Handymen" },
-    { icon: "Droplets", title: "Gardening Services", tasks: ["Lawn mowing & maintenance", "Tree & shrub care", "Planting & landscaping", "Garden cleanup"], href: "/services/gardeners", buttonText: "Explore Gardeners" },
+const servicesData = [
+  { id: 1, name: "John Electrician", category: "Electrician", price: "$50", rating: 4.8, location: "Dhaka", experience: "5 years", image: "⚡", available: true, orders: 234, level: "Level 2" },
+  { id: 2, name: "Mike Plumber", category: "Plumber", price: "$45", rating: 4.9, location: "Dhaka", experience: "7 years", image: "🔧", available: true, orders: 189, level: "Level 2" },
+  { id: 3, name: "David Carpenter", category: "Carpenter", price: "$40", rating: 4.7, location: "Chittagong", experience: "4 years", image: "🪚", available: false, orders: 56, level: "Level 1" },
+  { id: 4, name: "Sarah Gardener", category: "Gardener", price: "$35", rating: 4.9, location: "Sylhet", experience: "6 years", image: "🌱", available: true, orders: 312, level: "Top Rated" },
+  { id: 5, name: "Tech Solutions", category: "Others", price: "$60", rating: 4.8, location: "Dhaka", experience: "8 years", image: "💻", available: true, orders: 567, level: "Top Rated" },
+  { id: 6, name: "Robert Electrician", category: "Electrician", price: "$55", rating: 4.6, location: "Khulna", experience: "3 years", image: "⚡", available: true, orders: 123, level: "Level 1" },
+  { id: 7, name: "Alice Plumber", category: "Plumber", price: "$48", rating: 4.9, location: "Dhaka", experience: "5 years", image: "🔧", available: true, orders: 245, level: "Level 2" },
+  { id: 8, name: "Tom Carpenter", category: "Carpenter", price: "$42", rating: 4.7, location: "Rajshahi", experience: "6 years", image: "🪚", available: true, orders: 178, level: "Level 2" },
+  { id: 9, name: "Green Garden", category: "Gardener", price: "$38", rating: 4.8, location: "Dhaka", experience: "4 years", image: "🌱", available: true, orders: 92, level: "Level 1" },
+  { id: 10, name: "Home Services", category: "Others", price: "$70", rating: 4.5, location: "Chittagong", experience: "10 years", image: "🏠", available: true, orders: 445, level: "Top Rated" }
 ];
 
+export default function ServicesPage({ selectedCategory, currentUser, onShowLogin, searchQuery = "" }) {
+  const [services, setServices] = useState(servicesData);
 
-  const title = pageTitle || " Find The Best Expertise Here";
-  const subtitle = pageSubtitle || "Connecting you with top-rated professionals for every service need.";
+  const handleViewDetails = (serviceName) => {
+    if (!currentUser) {
+      onShowLogin();
+    } else {
+      alert(`📋 Showing details for: ${serviceName}\n\nContact: ${serviceName}@example.com\nPhone: +880 1XXX XXXXXX\nExperience: 5+ years\nLocation: Dhaka, Bangladesh`);
+    }
+  };
+
+  const handleChat = (serviceName) => {
+    if (!currentUser) {
+      onShowLogin();
+    } else {
+      alert(`💬 Starting chat with ${serviceName}\n\nAs a logged-in user, you can now discuss your requirements directly!`);
+    }
+  };
+
+  const filteredServices = services.filter(service => {
+    const matchesCategory = selectedCategory === "all" || service.category === selectedCategory;
+    const matchesSearch = searchQuery === "" || 
+      service.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      service.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      service.location.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
+  if (filteredServices.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <div className="text-6xl mb-4">🔍</div>
+        <p className="text-gray-500 text-lg">No services found matching your criteria</p>
+        <p className="text-gray-400 text-sm mt-2">Try adjusting your search or category filter</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-purple-50 to-indigo-100 font-sans relative overflow-hidden">
-        {/* Subtle background shape 1 */}
-        <div className="absolute top-0 -left-1/4 w-96 h-96 bg-purple-300 opacity-20 rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
-        {/* Subtle background shape 2 */}
-        <div className="absolute top-1/2 -right-1/4 w-96 h-96 bg-indigo-300 opacity-20 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000"></div>
-
-        {/* Header */}
-        <div className="relative z-10 bg-gradient-to-r from-purple-700 to-indigo-700 text-white py-20 mb-16 shadow-3xl">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-                <h1 className="text-6xl font-extrabold mb-4 tracking-tight leading-tight drop-shadow-lg">
-                    {title}
-                </h1>
-                <p className="text-xl text-purple-100 max-w-2xl mx-auto drop-shadow">
-                    {subtitle}
-                </p>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      {filteredServices.map((service) => (
+        <div key={service.id} className="group bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+          {/* Service Image/Icon */}
+          <div className="relative h-48 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center text-7xl">
+            {service.image}
+            {/* Level Badge */}
+            <div className="absolute top-3 left-3">
+              <span className={`text-xs font-semibold px-2 py-1 rounded ${
+                service.level === 'Top Rated' ? 'bg-yellow-500 text-white' :
+                service.level === 'Level 2' ? 'bg-green-500 text-white' :
+                'bg-gray-500 text-white'
+              }`}>
+                {service.level}
+              </span>
             </div>
-        </div>
-
-        {/* Services Grid */}
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
-            <h2 className="text-4xl font-extrabold text-gray-900 mb-14 text-center tracking-tight">
-                Explore Our Professional Services
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10"> {/* Increased gap */}
-                {services.map((service, idx) => (
-                    <ServiceCard key={idx} service={service} />
-                ))}
+            {/* Quick Action */}
+            <button className="absolute top-3 right-3 bg-white rounded-full p-2 shadow-md opacity-0 group-hover:opacity-100 transition">
+              <Heart className="w-4 h-4 text-gray-600" />
+            </button>
+          </div>
+          
+          <div className="p-4">
+            {/* Seller Info */}
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center text-green-600 font-bold text-sm">
+                  {service.name.charAt(0)}
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-800 text-sm">{service.name}</p>
+                  <p className="text-xs text-gray-500">{service.location}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                <span className="font-semibold text-sm">{service.rating}</span>
+                <span className="text-xs text-gray-400">({service.orders})</span>
+              </div>
             </div>
+            
+            {/* Service Title */}
+            <h3 className="font-semibold text-gray-800 mb-2 line-clamp-2">
+              I will provide professional {service.category.toLowerCase()} services
+            </h3>
+            
+            {/* Service Features */}
+            <div className="flex items-center gap-3 text-xs text-gray-500 mb-3">
+              <div className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                <span>{service.experience} exp</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <TrendingUp className="w-3 h-3" />
+                <span>{service.orders}+ orders</span>
+              </div>
+            </div>
+            
+            {/* Price and Action */}
+            <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+              <div>
+                <p className="text-xs text-gray-500">STARTING AT</p>
+                <p className="text-xl font-bold text-green-600">{service.price}</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleViewDetails(service.name)}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:border-green-600 hover:text-green-600 transition"
+                >
+                  <Info className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleChat(service.name)}
+                  className="px-4 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold"
+                >
+                  Chat
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
+      ))}
     </div>
+  );
+}
+
+// Heart icon component
+function Heart(props) {
+  return (
+    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+    </svg>
   );
 }
