@@ -1,37 +1,53 @@
 "use client";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { 
   LayoutDashboard, 
-  Briefcase, 
+  User, 
+  Package, 
   MessageCircle, 
   Heart, 
   Clock, 
   Settings, 
   Shield, 
   HelpCircle,
-  TrendingUp,
-  Star,
-  DollarSign,
-  Package
+  Menu,
+  X,
+  ChevronRight,
+  LogOut
 } from "lucide-react";
-import { getUserOrders, getUserActivities } from "@/lib/firestoreService";
+
+// Import all dashboard components
+import DashboardHome from "@/components/dashboard/DashboardHome";
+import ProfileComponent from "@/components/dashboard/ProfileComponent";
+import MyOrdersComponent from "@/components/dashboard/MyOrdersComponent";
+import MessagesComponent from "@/components/dashboard/MessagesComponent";
+import SavedItemsComponent from "@/components/dashboard/SavedItemsComponent";
+import RecentActivityComponent from "@/components/dashboard/RecentActivityComponent";
+import SettingsComponent from "@/components/dashboard/SettingsComponent";
+import BecomeSellerComponent from "@/components/dashboard/BecomeSellerComponent";
+import HelpSupportComponent from "@/components/dashboard/HelpSupportComponent";
+
+const menuItems = [
+  { id: "dashboard", name: "Dashboard", icon: LayoutDashboard, component: DashboardHome },
+  { id: "profile", name: "Profile", icon: User, component: ProfileComponent },
+  { id: "orders", name: "My Orders", icon: Package, component: MyOrdersComponent },
+  { id: "messages", name: "Messages", icon: MessageCircle, component: MessagesComponent },
+  { id: "saved", name: "Saved Items", icon: Heart, component: SavedItemsComponent },
+  { id: "activity", name: "Recent Activity", icon: Clock, component: RecentActivityComponent },
+  { id: "settings", name: "Account Settings", icon: Settings, component: SettingsComponent },
+  { id: "seller", name: "Become a Seller", icon: Shield, component: BecomeSellerComponent },
+  { id: "help", name: "Help & Support", icon: HelpCircle, component: HelpSupportComponent },
+];
 
 export default function DashboardPage() {
-  const { currentUser, loading, isAuthenticated } = useAuth();
+  const { currentUser, loading, isAuthenticated, logout } = useAuth();
   const router = useRouter();
-  const [stats, setStats] = useState({
-    totalOrders: 0,
-    completedJobs: 0,
-    pendingJobs: 0,
-    cancelledJobs: 0,
-    totalSpent: 0
-  });
-  const [recentOrders, setRecentOrders] = useState([]);
-  const [recentActivities, setRecentActivities] = useState([]);
-  const [loadingData, setLoadingData] = useState(true);
+  const [activeTab, setActiveTab] = useState("dashboard");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -39,43 +55,9 @@ export default function DashboardPage() {
     }
   }, [loading, isAuthenticated, router]);
 
-  useEffect(() => {
-    if (currentUser) {
-      fetchUserData();
-    }
-  }, [currentUser]);
-
-  const fetchUserData = async () => {
-    setLoadingData(true);
-    
-    // Fetch orders
-    const ordersResult = await getUserOrders(currentUser.uid, "customer");
-    if (ordersResult.success) {
-      const orders = ordersResult.data;
-      setRecentOrders(orders.slice(0, 5));
-      
-      // Calculate stats
-      const completed = orders.filter(o => o.status === "completed").length;
-      const pending = orders.filter(o => o.status === "pending").length;
-      const cancelled = orders.filter(o => o.status === "cancelled").length;
-      const totalSpent = orders.reduce((sum, o) => sum + (o.price || 0), 0);
-      
-      setStats({
-        totalOrders: orders.length,
-        completedJobs: completed,
-        pendingJobs: pending,
-        cancelledJobs: cancelled,
-        totalSpent: totalSpent
-      });
-    }
-    
-    // Fetch activities
-    const activitiesResult = await getUserActivities(currentUser.uid, 10);
-    if (activitiesResult.success) {
-      setRecentActivities(activitiesResult.data);
-    }
-    
-    setLoadingData(false);
+  const handleLogout = async () => {
+    await logout();
+    router.push("/");
   };
 
   if (loading) {
@@ -91,167 +73,116 @@ export default function DashboardPage() {
 
   if (!currentUser) return null;
 
-  const menuItems = [
-    { name: "Dashboard", icon: LayoutDashboard, href: "/dashboard", active: true },
-    { name: "Profile", icon: Briefcase, href: "/profile" },
-    { name: "My Orders", icon: Package, href: "/my-orders" },
-    { name: "Messages", icon: MessageCircle, href: "/messages" },
-    { name: "Saved Items", icon: Heart, href: "/saved-items" },
-    { name: "Recent Activity", icon: Clock, href: "/recent-activity" },
-    { name: "Account Settings", icon: Settings, href: "/settings" },
-    { name: "Become a Seller", icon: Shield, href: "/become-seller" },
-    { name: "Help & Support", icon: HelpCircle, href: "/help-support" },
-  ];
+  const ActiveComponent = menuItems.find(item => item.id === activeTab)?.component || DashboardHome;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="container mx-auto px-4">
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Sidebar */}
-          <div className="lg:w-80">
-            <div className="bg-white rounded-xl shadow-sm p-6 sticky top-24">
-              <div className="text-center pb-6 border-b border-gray-200">
-                {currentUser.photoURL ? (
-                  <img 
-                    src={currentUser.photoURL} 
-                    alt={currentUser.name}
-                    className="w-24 h-24 rounded-full mx-auto mb-3 object-cover ring-4 ring-green-100"
-                  />
-                ) : (
-                  <div className="w-24 h-24 bg-gradient-to-br from-green-600 to-green-700 rounded-full flex items-center justify-center mx-auto mb-3 ring-4 ring-green-100">
-                    <span className="text-3xl font-bold text-white">
-                      {currentUser.name?.charAt(0).toUpperCase()}
-                    </span>
+    <div className="min-h-screen bg-gray-50">
+      {/* Mobile Menu Button */}
+      <div className="lg:hidden fixed top-20 left-4 z-50">
+        <button
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="p-2 bg-white rounded-lg shadow-md"
+        >
+          {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        </button>
+      </div>
+
+      {/* Desktop Sidebar Toggle */}
+      <button
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        className="hidden lg:flex fixed top-24 z-50 bg-white rounded-r-lg shadow-md p-1 transition-all duration-300"
+        style={{ left: isSidebarOpen ? 288 : 80 }}
+      >
+        <ChevronRight className={`w-4 h-4 transition-transform duration-300 ${isSidebarOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      <div className="flex">
+        {/* Sidebar */}
+        <aside 
+          className={`fixed lg:sticky top-0 left-0 z-40 h-screen bg-white shadow-xl transition-all duration-300 ${
+            isSidebarOpen ? 'w-72' : 'w-20'
+          } ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+        >
+          <div className="flex flex-col h-full">
+            {/* Sidebar Header */}
+            <div className={`p-6 border-b border-gray-200 ${!isSidebarOpen && 'lg:px-2'}`}>
+              <div className={`flex items-center ${isSidebarOpen ? 'justify-between' : 'justify-center'}`}>
+                {isSidebarOpen && (
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-800">Dashboard</h2>
+                    <p className="text-xs text-gray-500 mt-1">Welcome back</p>
                   </div>
                 )}
-                <h3 className="font-bold text-lg text-gray-800">{currentUser.name}</h3>
-                <p className="text-sm text-gray-500">{currentUser.email}</p>
-                <div className="inline-flex items-center gap-1 mt-2 px-2 py-1 bg-green-50 rounded-full">
-                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                  <span className="text-xs text-green-600 font-medium">Active</span>
+                <div className={`w-10 h-10 bg-gradient-to-br from-green-600 to-green-700 rounded-full flex items-center justify-center text-white font-bold ${!isSidebarOpen && 'lg:mx-auto'}`}>
+                  {currentUser.name?.charAt(0).toUpperCase()}
                 </div>
               </div>
+            </div>
 
-              <div className="space-y-1 mt-4">
-                {menuItems.map((item) => (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200 ${
-                      item.active 
-                        ? "bg-green-50 text-green-600" 
-                        : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
-                    }`}
-                  >
-                    <item.icon className="w-5 h-5" />
+            {/* User Info */}
+            {isSidebarOpen && (
+              <div className="px-6 py-4 border-b border-gray-100">
+                <p className="font-semibold text-gray-800 truncate">{currentUser.name}</p>
+                <p className="text-xs text-gray-500 truncate">{currentUser.email}</p>
+                <div className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 bg-green-50 rounded-full">
+                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                  <span className="text-xs text-green-600">Active</span>
+                </div>
+              </div>
+            )}
+
+            {/* Navigation Menu */}
+            <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+              {menuItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setActiveTab(item.id);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-all duration-200 group ${
+                    activeTab === item.id 
+                      ? "bg-green-50 text-green-600" 
+                      : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
+                  }`}
+                >
+                  <item.icon className="w-5 h-5 flex-shrink-0" />
+                  {isSidebarOpen && (
                     <span className="text-sm font-medium">{item.name}</span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Main Content */}
-          <div className="flex-1">
-            <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-              <h1 className="text-2xl font-bold text-gray-800">Welcome back, {currentUser.name?.split(' ')[0]}!</h1>
-              <p className="text-gray-500 mt-1">Here's what's happening with your account today.</p>
-            </div>
-
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white rounded-xl shadow-sm p-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-500 text-sm">Total Orders</p>
-                    <p className="text-2xl font-bold text-gray-800">{stats.totalOrders}</p>
-                  </div>
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                    <Package className="w-5 h-5 text-blue-600" />
-                  </div>
-                </div>
-              </div>
-              <div className="bg-white rounded-xl shadow-sm p-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-500 text-sm">Completed Jobs</p>
-                    <p className="text-2xl font-bold text-green-600">{stats.completedJobs}</p>
-                  </div>
-                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                    <TrendingUp className="w-5 h-5 text-green-600" />
-                  </div>
-                </div>
-              </div>
-              <div className="bg-white rounded-xl shadow-sm p-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-500 text-sm">Total Spent</p>
-                    <p className="text-2xl font-bold text-gray-800">৳{stats.totalSpent}</p>
-                  </div>
-                  <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                    <DollarSign className="w-5 h-5 text-yellow-600" />
-                  </div>
-                </div>
-              </div>
-              <div className="bg-white rounded-xl shadow-sm p-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-500 text-sm">Pending</p>
-                    <p className="text-2xl font-bold text-orange-600">{stats.pendingJobs}</p>
-                  </div>
-                  <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-orange-600" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Recent Orders */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h2 className="text-lg font-bold text-gray-800 mb-4">Recent Orders</h2>
-              {loadingData ? (
-                <div className="text-center py-8">
-                  <div className="w-8 h-8 border-2 border-green-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                </div>
-              ) : recentOrders.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">No orders yet</p>
-                  <Link href="/" className="text-green-600 hover:underline text-sm mt-2 inline-block">
-                    Browse Services
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {recentOrders.map((order) => (
-                    <div key={order.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                          <Package className="w-5 h-5 text-gray-600" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-800">{order.serviceName || "Service"}</p>
-                          <p className="text-xs text-gray-500">
-                            {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : "Recent"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-green-600">৳{order.price}</p>
-                        <span className={`text-xs px-2 py-1 rounded-full ${
-                          order.status === "completed" ? "bg-green-100 text-green-600" :
-                          order.status === "pending" ? "bg-yellow-100 text-yellow-600" :
-                          "bg-red-100 text-red-600"
-                        }`}>
-                          {order.status}
-                        </span>
-                      </div>
+                  )}
+                  {!isSidebarOpen && (
+                    <div className="absolute left-14 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+                      {item.name}
                     </div>
-                  ))}
-                </div>
-              )}
+                  )}
+                </button>
+              ))}
+            </nav>
+
+            {/* Logout Button */}
+            <div className="p-4 border-t border-gray-200">
+              <button
+                onClick={handleLogout}
+                className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-red-600 hover:bg-red-50 transition-all duration-200 ${!isSidebarOpen && 'lg:justify-center'}`}
+              >
+                <LogOut className="w-5 h-5 flex-shrink-0" />
+                {isSidebarOpen && <span className="text-sm font-medium">Logout</span>}
+                {!isSidebarOpen && (
+                  <div className="absolute left-14 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                    Logout
+                  </div>
+                )}
+              </button>
             </div>
           </div>
-        </div>
+        </aside>
+
+        {/* Main Content */}
+        <main className={`flex-1 transition-all duration-300`}>
+          <div className="p-4 md:p-6 lg:p-8">
+            <ActiveComponent />
+          </div>
+        </main>
       </div>
     </div>
   );

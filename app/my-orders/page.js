@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";  // ← এই লাইন যোগ করুন
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -38,7 +39,7 @@ export default function MyOrdersPage() {
       const result = await updateOrderStatus(orderId, "cancelled");
       if (result.success) {
         await addActivity(currentUser.uid, {
-          type: "order",
+          type: "order_cancelled",
           action: "Cancelled order",
           orderId: orderId,
           timestamp: new Date().toISOString()
