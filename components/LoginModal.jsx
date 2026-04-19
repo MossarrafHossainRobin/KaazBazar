@@ -1,46 +1,183 @@
 "use client";
-import { useState } from "react";
-import { X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Mail, Lock, Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react";
 import { 
   auth, 
   googleProvider, 
-  facebookProvider, 
   signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword
 } from "@/lib/firebase";
+import { saveUserProfile, getUserProfile } from "@/lib/userService";
 
 export default function LoginModal({ show, onClose, onLogin }) {
-  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isClosing, setIsClosing] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
-  if (!show) return null;
+  useEffect(() => {
+    if (!show) {
+      const timer = setTimeout(() => {
+        setEmail("");
+        setPassword("");
+        setConfirmPassword("");
+        setError("");
+        setSuccessMessage("");
+        setIsSignUp(false);
+        setLoading(false);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [show]);
 
-  const handleEmailAuth = async (e) => {
+  const handleClose = () => {
+    setIsClosing(true);
+    setTimeout(() => {
+      onClose();
+      setIsClosing(false);
+    }, 200);
+  };
+
+  if (!show && !isClosing) return null;
+
+  // Generate avatar from email
+  const generateAvatarFromEmail = (email, name) => {
+    const encodedName = encodeURIComponent(name || email.split('@')[0]);
+    return `https://ui-avatars.com/api/?name=${encodedName}&background=10b981&color=fff&size=200&rounded=true&bold=true`;
+  };
+
+  // Save user to Firestore
+  const saveUserToFirestore = async (user, provider, customPhotoURL = null) => {
+    let photoURL = customPhotoURL || user.photoURL || "";
+    
+    if (!photoURL && provider === "email") {
+      const name = user.displayName || email.split('@')[0];
+      photoURL = generateAvatarFromEmail(user.email, name);
+    }
+    
+    const userData = {
+      uid: user.uid,
+      name: user.displayName || email.split('@')[0],
+      email: user.email,
+      photoURL: photoURL,
+      provider: provider,
+      role: "user",
+      phone: "",
+      address: "",
+      city: "",
+      preferredCategories: [],
+      listings: [],
+      totalJobs: 0,
+      totalSpent: 0,
+      rating: 0,
+      reviews: [],
+      createdAt: new Date().toISOString(),
+      lastLogin: new Date().toISOString(),
+      isActive: true,
+      notifications: {
+        email: true,
+        push: true,
+        sms: false
+      },
+      settings: {
+        language: "bengali",
+        currency: "BDT",
+        theme: "light"
+      }
+    };
+
+    const existingUser = await getUserProfile(user.uid);
+    
+    if (!existingUser.success) {
+      await saveUserProfile(user.uid, userData);
+      return userData;
+    } else {
+      const updateData = { lastLogin: new Date().toISOString() };
+      if ((!existingUser.data.photoURL || existingUser.data.photoURL === "") && photoURL) {
+        updateData.photoURL = photoURL;
+      }
+      await saveUserProfile(user.uid, updateData);
+      return { ...existingUser.data, ...updateData };
+    }
+  };
+
+  const handleEmailSignUp = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setSuccessMessage("");
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      setLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Password should be at least 6 characters");
+      setLoading(false);
+      return;
+    }
 
     try {
-      let userCredential;
-      if (isLogin) {
-        userCredential = await signInWithEmailAndPassword(auth, email, password);
-      } else {
-        userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      }
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-      const userData = {
-        name: user.displayName || email.split('@')[0],
-        email: user.email,
-        uid: user.uid,
-      };
-      onLogin(userData);
-      onClose();
+      const userData = await saveUserToFirestore(user, "email");
+      
+      setSuccessMessage("Account created successfully! Redirecting...");
+      setTimeout(() => {
+        onLogin(userData);
+        handleClose();
+      }, 1000);
+    } catch (err) {
+      switch (err.code) {
+        case 'auth/email-already-in-use':
+          setError('Email already in use. Please login instead.');
+          break;
+        case 'auth/invalid-email':
+          setError('Invalid email address.');
+          break;
+        case 'auth/weak-password':
+          setError('Password should be at least 6 characters.');
+          break;
+        default:
+          setError('Failed to create account. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEmailSignIn = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setSuccessMessage("");
+
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      const result = await getUserProfile(user.uid);
+      
+      let userData;
+      if (result.success) {
+        userData = result.data;
+        await saveUserProfile(user.uid, { lastLogin: new Date().toISOString() });
+      } else {
+        userData = await saveUserToFirestore(user, "email");
+      }
+      
+      setSuccessMessage("Login successful! Redirecting...");
+      setTimeout(() => {
+        onLogin(userData);
+        handleClose();
+      }, 800);
     } catch (err) {
       switch (err.code) {
         case 'auth/invalid-email':
@@ -52,11 +189,8 @@ export default function LoginModal({ show, onClose, onLogin }) {
         case 'auth/wrong-password':
           setError('Incorrect password.');
           break;
-        case 'auth/email-already-in-use':
-          setError('Email already in use. Please login instead.');
-          break;
         default:
-          setError('Authentication failed. Please try again.');
+          setError('Login failed. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -66,104 +200,89 @@ export default function LoginModal({ show, onClose, onLogin }) {
   const handleGoogleLogin = async () => {
     setLoading(true);
     setError("");
+    setSuccessMessage("");
+    
     try {
+      // Clear any existing session to prevent conflicts
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
-      const userData = {
-        name: user.displayName || user.email.split('@')[0],
-        email: user.email,
-        photoURL: user.photoURL,
-        uid: user.uid,
-      };
-      onLogin(userData);
-      onClose();
+      
+      const userData = await saveUserToFirestore(user, "google", user.photoURL);
+      
+      setSuccessMessage("Google login successful! Redirecting...");
+      setTimeout(() => {
+        onLogin(userData);
+        handleClose();
+      }, 800);
     } catch (err) {
-      setError('Failed to login with Google. Please try again.');
+      console.error("Google login error:", err);
+      if (err.code === 'auth/popup-blocked') {
+        setError('Popup was blocked. Please allow popups for this site.');
+      } else if (err.code === 'auth/popup-closed-by-user') {
+        setError('Login cancelled. Please try again.');
+      } else {
+        setError('Failed to login with Google. Please try again.');
+      }
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleFacebookLogin = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const result = await signInWithPopup(auth, facebookProvider);
-      const user = result.user;
-      const userData = {
-        name: user.displayName || user.email.split('@')[0],
-        email: user.email,
-        photoURL: user.photoURL,
-        uid: user.uid,
-      };
-      onLogin(userData);
-      onClose();
-    } catch (err) {
-      setError('Failed to login with Facebook. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleBackdropClick = (e) => {
-    if (e.target === e.currentTarget && !loading) {
-      setShowEmailForm(false);
-      onClose();
     }
   };
 
   return (
     <div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
-      onClick={handleBackdropClick}
+      className={`fixed inset-0 bg-black transition-all duration-300 flex items-center justify-center z-[9999] p-4 ${
+        isClosing ? 'bg-opacity-0' : 'bg-opacity-50'
+      }`}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !loading) handleClose();
+      }}
     >
-      <div className="bg-white rounded-2xl max-w-md w-full relative shadow-2xl overflow-hidden">
+      <div className={`bg-white rounded-2xl max-w-md w-full relative shadow-2xl overflow-hidden transition-all duration-300 transform ${
+        isClosing ? 'scale-95 opacity-0' : 'scale-100 opacity-100'
+      }`}>
         <button
-          onClick={() => {
-            setShowEmailForm(false);
-            onClose();
-          }}
-          className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 z-10"
+          onClick={handleClose}
+          disabled={loading}
+          className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 z-10 transition-colors"
         >
-          <X className="w-6 h-6" />
+          <X className="w-5 h-5" />
         </button>
         
         <div className="p-8">
-          {/* Header */}
           <div className="text-center mb-6">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl font-bold text-green-600">K</span>
+            <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+              <span className="text-2xl font-bold text-white">K</span>
             </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">
-              {isLogin ? "Sign in to your account" : "Create your account"}
+            <h2 className="text-2xl font-bold text-gray-800">
+              {isSignUp ? "Create Account" : "Welcome Back"}
             </h2>
-            <p className="text-gray-600 text-sm">
-              {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-              <button
-                onClick={() => {
-                  setIsLogin(!isLogin);
-                  setError("");
-                  setShowEmailForm(false);
-                }}
-                className="text-green-600 font-semibold hover:underline"
-              >
-                {isLogin ? "Join here" : "Sign in"}
-              </button>
+            <p className="text-gray-500 mt-2 text-sm">
+              {isSignUp 
+                ? "Sign up to connect with local service providers" 
+                : "Login to view details and chat with service providers"}
             </p>
           </div>
 
-          {/* Error Message */}
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-600 text-sm text-center">{error}</p>
+          {successMessage && (
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg animate-pulse">
+              <p className="text-green-600 text-sm text-center">{successMessage}</p>
             </div>
           )}
 
-          {/* Google Button */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                <p className="text-red-600 text-sm">{error}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Google Login Button */}
           <button
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-3 border border-gray-300 text-gray-700 py-2.5 rounded-lg hover:bg-gray-50 transition mb-3 disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-3 border border-gray-300 text-gray-700 py-2.5 rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -173,102 +292,89 @@ export default function LoginModal({ show, onClose, onLogin }) {
             </svg>
             <span>Continue with Google</span>
           </button>
-
-          {/* Email Button */}
-          {!showEmailForm && (
-            <button
-              onClick={() => setShowEmailForm(true)}
-              className="w-full flex items-center justify-center gap-3 border border-gray-300 text-gray-700 py-2.5 rounded-lg hover:bg-gray-50 transition mb-3"
-            >
-              <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              <span>Continue with email/username</span>
-            </button>
-          )}
-
+          
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-200"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-4 bg-white text-gray-400">OR</span>
+            </div>
+          </div>
+          
           {/* Email/Password Form */}
-          {showEmailForm && (
-            <form onSubmit={handleEmailAuth} className="space-y-3 mb-4">
+          <form onSubmit={isSignUp ? handleEmailSignUp : handleEmailSignIn} className="space-y-4">
+            <div>
               <input
                 type="email"
                 placeholder="Email address"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-300 focus:border-gray-300 outline-none transition-all"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                required
                 disabled={loading}
+                required
               />
+            </div>
+            
+            <div>
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
                   placeholder="Password"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-300 focus:border-gray-300 outline-none transition-all"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  required
                   disabled={loading}
+                  required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-2 text-gray-400 text-sm"
+                  className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
                 >
-                  {showPassword ? "Hide" : "Show"}
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 transition disabled:opacity-50"
-              >
-                {loading ? "Please wait..." : (isLogin ? "Sign In" : "Sign Up")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowEmailForm(false)}
-                className="w-full text-gray-500 text-sm hover:text-gray-700"
-              >
-                ← Back
-              </button>
-            </form>
-          )}
-
-          {/* OR Divider */}
-          <div className="relative my-4">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
             </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-gray-500">OR</span>
-            </div>
-          </div>
 
-          {/* Apple and Facebook */}
-          <div className="space-y-2">
-            <button className="w-full flex items-center justify-center gap-3 bg-black text-white py-2 rounded-lg hover:bg-gray-900 transition disabled:opacity-50" disabled>
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17.36 3 13.75 3 10.92c0-4.03 2.58-6.1 5.12-6.1 1.34 0 2.45.89 3.29.89.83 0 2.38-1.09 4.03-1.09.68 0 2.58.14 3.79 1.52-3.29 1.88-2.74 6.78.51 7.96-.79 2.31-2.03 4.62-3.03 6.4zM15.53 2c.66-.79 1.48-1.4 2.52-1.5.15 1.23-.36 2.45-1.07 3.33-.66.82-1.56 1.46-2.56 1.38-.15-1.18.42-2.4 1.11-3.21z"/>
-              </svg>
-              <span>Apple</span>
-            </button>
+            {isSignUp && (
+              <div>
+                <input
+                  type="password"
+                  placeholder="Confirm password"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-300 focus:border-gray-300 outline-none transition-all"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+              </div>
+            )}
+            
             <button
-              onClick={handleFacebookLogin}
+              type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-3 bg-[#1877F2] text-white py-2 rounded-lg hover:bg-[#166fe5] transition disabled:opacity-50"
+              className="w-full bg-black text-white py-2.5 rounded-lg font-semibold hover:bg-gray-800 transition disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M24 12.07C24 5.41 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.8-4.7 4.54-4.7 1.31 0 2.68.24 2.68.24v2.96h-1.5c-1.5 0-1.96.93-1.96 1.89v2.26h3.32l-.53 3.49h-2.8V24C19.62 23.1 24 18.1 24 12.07z" />
-              </svg>
-              <span>Facebook</span>
+              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+              {loading ? "Please wait..." : (isSignUp ? "Sign Up" : "Sign In")}
             </button>
-          </div>
-
-          {/* Terms */}
-          <p className="text-xs text-gray-500 text-center mt-6">
-            By joining, you agree to the Kaazbazar{" "}
-            <a href="#" className="text-green-600 hover:underline">Terms of Service</a>{" "}
-            and to occasionally receive emails from us.
+          </form>
+          
+          <p className="text-center text-sm text-gray-500 mt-6">
+            {isSignUp ? "Already have an account?" : "Don't have an account?"}{' '}
+            <button
+              onClick={() => {
+                setIsSignUp(!isSignUp);
+                setError("");
+                setSuccessMessage("");
+                setPassword("");
+                setConfirmPassword("");
+              }}
+              className="text-black font-semibold hover:underline transition"
+            >
+              {isSignUp ? "Sign In" : "Sign Up"}
+            </button>
           </p>
         </div>
       </div>
