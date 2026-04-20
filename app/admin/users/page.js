@@ -1,9 +1,19 @@
 // app/admin/users/page.js
 "use client";
 import { useState, useEffect } from "react";
-import { Search, Edit2, Trash2, UserCheck, UserX, Shield, MoreVertical, Eye } from "lucide-react";
+import { 
+  Search, 
+  UserCheck, 
+  UserX, 
+  Shield, 
+  Eye, 
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  Filter
+} from "lucide-react";
 import { db } from "@/lib/firebaseClient";
-import { collection, getDocs, updateDoc, doc, deleteDoc, query, where, orderBy } from "firebase/firestore";
+import { collection, getDocs, updateDoc, doc, deleteDoc, query, orderBy, limit, startAfter } from "firebase/firestore";
 
 export default function UserManagement() {
   const [users, setUsers] = useState([]);
@@ -13,16 +23,32 @@ export default function UserManagement() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [selectedUser, setSelectedUser] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [lastDoc, setLastDoc] = useState(null);
+  const USERS_PER_PAGE = 10;
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [currentPage]);
 
   const fetchUsers = async () => {
+    setLoading(true);
     try {
-      const snapshot = await getDocs(collection(db, "users"));
+      let usersQuery = query(collection(db, "users"), orderBy("createdAt", "desc"), limit(USERS_PER_PAGE));
+      
+      if (currentPage > 1 && lastDoc) {
+        usersQuery = query(collection(db, "users"), orderBy("createdAt", "desc"), startAfter(lastDoc), limit(USERS_PER_PAGE));
+      }
+      
+      const snapshot = await getDocs(usersQuery);
       const usersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setUsers(usersData);
+      setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+      
+      // Calculate total pages (simplified)
+      const totalSnapshot = await getDocs(collection(db, "users"));
+      setTotalPages(Math.ceil(totalSnapshot.size / USERS_PER_PAGE));
     } catch (error) {
       console.error("Error fetching users:", error);
     } finally {
@@ -115,7 +141,7 @@ export default function UserManagement() {
       {/* Users Table */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">User</th>
@@ -131,14 +157,14 @@ export default function UserManagement() {
                 <tr>
                   <td colSpan="6" className="px-4 py-8 text-center">
                     <div className="w-8 h-8 border-2 border-green-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                  </td>
-                </tr>
+                   </td>
+                 </tr>
               ) : filteredUsers.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="px-4 py-8 text-center text-gray-500">
                     No users found
-                  </td>
-                </tr>
+                   </td>
+                 </tr>
               ) : (
                 filteredUsers.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50">
@@ -207,8 +233,29 @@ export default function UserManagement() {
                 ))
               )}
             </tbody>
-          </table>
+           </table>
         </div>
+        
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex justify-center gap-2 p-4 border-t">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1 border rounded disabled:opacity-50"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="px-3 py-1">Page {currentPage} of {totalPages}</span>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 border rounded disabled:opacity-50"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* User Details Modal */}
@@ -233,12 +280,17 @@ export default function UserManagement() {
                   <p className="text-sm text-gray-500">{selectedUser.email}</p>
                 </div>
               </div>
-              <div className="border-t pt-4">
+              <div className="border-t pt-4 space-y-2">
                 <p className="text-sm"><strong>UID:</strong> {selectedUser.id}</p>
-                <p className="text-sm mt-2"><strong>Role:</strong> {selectedUser.role || "user"}</p>
-                <p className="text-sm mt-2"><strong>Status:</strong> {selectedUser.isActive !== false ? "Active" : "Inactive"}</p>
-                <p className="text-sm mt-2"><strong>Joined:</strong> {selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleString() : "N/A"}</p>
-                <p className="text-sm mt-2"><strong>Last Login:</strong> {selectedUser.lastLogin ? new Date(selectedUser.lastLogin).toLocaleString() : "N/A"}</p>
+                <p className="text-sm"><strong>Role:</strong> {selectedUser.role || "user"}</p>
+                <p className="text-sm"><strong>Status:</strong> {selectedUser.isActive !== false ? "Active" : "Inactive"}</p>
+                <p className="text-sm"><strong>Phone:</strong> {selectedUser.phone || "Not provided"}</p>
+                <p className="text-sm"><strong>Address:</strong> {selectedUser.address || "Not provided"}</p>
+                <p className="text-sm"><strong>City:</strong> {selectedUser.city || "Not provided"}</p>
+                <p className="text-sm"><strong>Total Jobs:</strong> {selectedUser.totalJobs || 0}</p>
+                <p className="text-sm"><strong>Total Spent:</strong> ৳{selectedUser.totalSpent || 0}</p>
+                <p className="text-sm"><strong>Joined:</strong> {selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleString() : "N/A"}</p>
+                <p className="text-sm"><strong>Last Login:</strong> {selectedUser.lastLogin ? new Date(selectedUser.lastLogin).toLocaleString() : "N/A"}</p>
               </div>
             </div>
           </div>

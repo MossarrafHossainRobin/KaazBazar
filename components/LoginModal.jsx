@@ -7,7 +7,7 @@ import {
   signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword
-} from "@/lib/firebase";
+} from "@/lib/firebaseClient";
 import { saveUserProfile, getUserProfile } from "@/lib/userService";
 
 export default function LoginModal({ show, onClose, onLogin }) {
@@ -45,6 +45,22 @@ export default function LoginModal({ show, onClose, onLogin }) {
   };
 
   if (!show && !isClosing) return null;
+
+  // Create session cookie for admin
+  const createSession = async (idToken) => {
+    try {
+      const response = await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
+      if (!response.ok) {
+        console.error('Session creation failed');
+      }
+    } catch (error) {
+      console.error('Session creation error:', error);
+    }
+  };
 
   // Generate avatar from email
   const generateAvatarFromEmail = (email, name) => {
@@ -130,6 +146,10 @@ export default function LoginModal({ show, onClose, onLogin }) {
       const user = userCredential.user;
       const userData = await saveUserToFirestore(user, "email");
       
+      // Create session for the user
+      const idToken = await user.getIdToken();
+      await createSession(idToken);
+      
       setSuccessMessage("Account created successfully! Redirecting...");
       setTimeout(() => {
         onLogin(userData);
@@ -173,6 +193,10 @@ export default function LoginModal({ show, onClose, onLogin }) {
         userData = await saveUserToFirestore(user, "email");
       }
       
+      // Create session for the user
+      const idToken = await user.getIdToken();
+      await createSession(idToken);
+      
       setSuccessMessage("Login successful! Redirecting...");
       setTimeout(() => {
         onLogin(userData);
@@ -203,11 +227,14 @@ export default function LoginModal({ show, onClose, onLogin }) {
     setSuccessMessage("");
     
     try {
-      // Clear any existing session to prevent conflicts
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
       
       const userData = await saveUserToFirestore(user, "google", user.photoURL);
+      
+      // Create session for the user
+      const idToken = await user.getIdToken();
+      await createSession(idToken);
       
       setSuccessMessage("Google login successful! Redirecting...");
       setTimeout(() => {

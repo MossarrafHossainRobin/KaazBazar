@@ -1,5 +1,6 @@
 // app/layout.js
 import ClientProviders from "@/components/ClientProviders";
+import { AdminAuthProvider } from "@/context/AdminAuthContext";
 import "./globals.css";
 
 export const metadata = {
@@ -15,7 +16,9 @@ export default function RootLayout({ children }) {
       </head>
       <body className="antialiased">
         <ClientProviders>
-          {children}
+          <AdminAuthProvider>
+            {children}
+          </AdminAuthProvider>
         </ClientProviders>
       </body>
     </html>

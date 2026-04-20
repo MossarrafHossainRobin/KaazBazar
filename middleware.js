@@ -1,26 +1,21 @@
 // middleware.js
 import { NextResponse } from 'next/server';
-import { auth } from '@/lib/firebaseAdmin';
 
-export async function middleware(request) {
-  const session = request.cookies.get('session')?.value;
+export function middleware(request) {
+  const { pathname } = request.nextUrl;
   
-  if (!session) {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
-
-  try {
-    const decodedToken = await auth.verifySessionCookie(session);
-    const isAdmin = decodedToken.role === 'admin';
-    
-    if (!isAdmin && request.nextUrl.pathname.startsWith('/admin')) {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
-    
+  // Allow admin routes - no redirect
+  if (pathname.startsWith('/admin')) {
     return NextResponse.next();
-  } catch (error) {
-    return NextResponse.redirect(new URL('/login', request.url));
   }
+  
+  // Allow dashboard routes
+  if (pathname.startsWith('/dashboard')) {
+    return NextResponse.next();
+  }
+  
+  // Allow all other routes
+  return NextResponse.next();
 }
 
 export const config = {
