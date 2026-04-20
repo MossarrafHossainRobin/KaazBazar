@@ -21,7 +21,9 @@ import {
   ThumbsUp,
   CheckCircle,
   Phone,
-  Heart
+  Heart,
+  Calendar,
+  CreditCard
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getAllServiceProviders } from "@/lib/firestoreService";
@@ -166,7 +168,7 @@ export default function ServiceCategoryPage() {
     });
   };
 
-  // Fixed Chat handler
+  // Chat handler
   const handleChat = async (provider) => {
     if (!currentUser) {
       router.push("/Login");
@@ -174,21 +176,18 @@ export default function ServiceCategoryPage() {
     }
     
     try {
-      // Prepare current user data
       const currentUserData = {
         name: currentUser.name,
         photoURL: currentUser.photoURL,
         email: currentUser.email
       };
       
-      // Prepare provider data
       const providerData = {
         name: provider.name,
         photoURL: provider.photoURL,
         email: provider.email
       };
       
-      // Create or get existing conversation with 4 parameters
       const conversation = await getOrCreateConversation(
         currentUser.uid,
         provider.userId || provider.id,
@@ -197,19 +196,15 @@ export default function ServiceCategoryPage() {
       );
       
       if (conversation && conversation.id) {
-        // Store conversation ID in localStorage
         localStorage.setItem("activeConversationId", conversation.id);
-        // Redirect to dashboard with messages tab
         router.push("/dashboard?tab=messages");
-      } else {
-        console.error("Failed to create/get conversation");
       }
     } catch (error) {
       console.error("Error starting chat:", error);
     }
   };
 
-  // Book Now handler
+  // Book Now handler - redirects to booking page
   const handleBookNow = (provider) => {
     if (!currentUser) {
       router.push("/Login");
@@ -468,18 +463,29 @@ export default function ServiceCategoryPage() {
                       <span>{provider.city || "Dhaka"}</span>
                     </div>
 
-                    {/* Price */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-gray-400">STARTING AT</p>
-                        <p className="text-lg font-bold text-green-600">৳{provider.hourlyRate || 500}</p>
+                    {/* Price and Buttons */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-gray-400">STARTING AT</p>
+                          <p className="text-lg font-bold text-green-600">৳{provider.hourlyRate || 500}</p>
+                        </div>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => handleChat(provider)}
+                            className="p-1.5 bg-gray-100 text-gray-600 rounded-md hover:bg-gray-200 transition"
+                            title="Chat"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleBookNow(provider)}
+                            className="px-3 py-1.5 bg-green-600 text-white rounded-md text-xs font-medium hover:bg-green-700 transition flex items-center gap-1"
+                          >
+                            <Calendar className="w-3 h-3" /> Book Now
+                          </button>
+                        </div>
                       </div>
-                      <button
-                        onClick={() => handleChat(provider)}
-                        className="px-3 py-1.5 bg-green-600 text-white rounded-md text-xs font-medium hover:bg-green-700 transition flex items-center gap-1"
-                      >
-                        <MessageCircle className="w-3 h-3" /> Chat
-                      </button>
                     </div>
                   </div>
                 </div>
