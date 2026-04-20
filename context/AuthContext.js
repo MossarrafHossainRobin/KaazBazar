@@ -3,13 +3,14 @@
 
 import { createContext, useContext, useState, useEffect } from "react";
 import { auth, onAuthStateChanged, signOut, db } from "@/lib/firebaseClient";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Function to get user profile from Firestore
   const getUserProfile = async (userId) => {
@@ -39,11 +40,71 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Function to update user role (admin only)
+  const updateUserRole = async (userId, newRole) => {
+    try {
+      const userRef = doc(db, "users", userId);
+      await updateDoc(userRef, { role: newRole });
+      if (currentUser?.uid === userId) {
+        setCurrentUser(prev => ({ ...prev, role: newRole }));
+        setIsAdmin(newRole === "admin");
+      }
+      return { success: true };
+    } catch (error) {
+      console.error("Error updating user role:", error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Function to update user status (activate/deactivate)
+  const updateUserStatus = async (userId, isActive) => {
+    try {
+      const userRef = doc(db, "users", userId);
+      await updateDoc(userRef, { isActive });
+      if (currentUser?.uid === userId) {
+        setCurrentUser(prev => ({ ...prev, isActive }));
+      }
+      return { success: true };
+    } catch (error) {
+      console.error("Error updating user status:", error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Function to get all users (admin only)
+  const getAllUsers = async () => {
+    try {
+      const { collection, getDocs } = await import("firebase/firestore");
+      const usersRef = collection(db, "users");
+      const snapshot = await getDocs(usersRef);
+      const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      return { success: true, data: users };
+    } catch (error) {
+      console.error("Error getting all users:", error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Function to delete user (admin only)
+  const deleteUser = async (userId) => {
+    try {
+      const { deleteDoc } = await import("firebase/firestore");
+      const userRef = doc(db, "users", userId);
+      await deleteDoc(userRef);
+      return { success: true };
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      return { success: false, error: error.message };
+    }
+  };
+
   useEffect(() => {
     // Check localStorage for cached user (for faster initial load)
     const cachedUser = localStorage.getItem("kaazbazar_user");
     if (cachedUser) {
-      setCurrentUser(JSON.parse(cachedUser));
+      const parsedUser = JSON.parse(cachedUser);
+      setCurrentUser(parsedUser);
+      setIsAdmin(parsedUser.role === "admin");
     }
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -77,20 +138,25 @@ export function AuthProvider({ children }) {
           }
           
           setCurrentUser(userData);
+          setIsAdmin(userData.role === "admin");
           localStorage.setItem("kaazbazar_user", JSON.stringify(userData));
         } catch (error) {
           console.error("Error fetching user data:", error);
-          setCurrentUser({
+          const fallbackUser = {
             uid: user.uid,
             name: user.displayName || user.email.split('@')[0],
             email: user.email,
             photoURL: user.photoURL,
             provider: "email",
-            role: "user"
-          });
+            role: "user",
+            isActive: true
+          };
+          setCurrentUser(fallbackUser);
+          setIsAdmin(false);
         }
       } else {
         setCurrentUser(null);
+        setIsAdmin(false);
         localStorage.removeItem("kaazbazar_user");
       }
       setLoading(false);
@@ -103,6 +169,7 @@ export function AuthProvider({ children }) {
     try {
       await signOut(auth);
       setCurrentUser(null);
+      setIsAdmin(false);
       localStorage.removeItem("kaazbazar_user");
       sessionStorage.clear();
     } catch (error) {
@@ -116,7 +183,12 @@ export function AuthProvider({ children }) {
       setCurrentUser,
       loading, 
       logout, 
-      isAuthenticated: !!currentUser 
+      isAuthenticated: !!currentUser,
+      isAdmin,
+      updateUserRole,
+      updateUserStatus,
+      getAllUsers,
+      deleteUser
     }}>
       {children}
     </AuthContext.Provider>
