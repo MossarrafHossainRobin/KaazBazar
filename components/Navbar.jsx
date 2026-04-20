@@ -26,12 +26,12 @@ import {
   LayoutDashboard,
   Package,
   CheckCircle,
-  XCircle as XCircleIcon,
-  ShieldCheck
+  XCircle as XCircleIcon
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
 import { updateUserProfile, getUserProfile } from "@/lib/firestoreService";
+import NotificationBell from "@/components/NotificationBell";
 
 export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -48,9 +48,6 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
   const router = useRouter();
   const { language, toggleLanguage, t } = useLanguage();
   const { currentUser, logout, isAuthenticated, setCurrentUser } = useAuth();
-
-  // Check if user is admin
-  const isAdmin = currentUser?.role === "admin";
 
   // Service Categories Data
   const serviceCategories = [
@@ -213,7 +210,6 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
       topRated: "Top Rated",
       nearYou: "Near You",
       dashboard: "Dashboard",
-      adminDashboard: "Admin Dashboard",
       savedItems: "Saved Items",
       recentActivity: "Recent Activity",
       accountSettings: "Account Settings",
@@ -238,7 +234,6 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
       topRated: "টপ রেটেড",
       nearYou: "আপনার কাছাকাছি",
       dashboard: "ড্যাশবোর্ড",
-      adminDashboard: "অ্যাডমিন ড্যাশবোর্ড",
       savedItems: "সেভ করা আইটেম",
       recentActivity: "রিসেন্ট অ্যাক্টিভিটি",
       accountSettings: "অ্যাকাউন্ট সেটিংস",
@@ -251,70 +246,6 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
   };
 
   const lang = translations[language];
-
-  // If not authenticated, show simplified navbar
-  if (!isAuthenticated) {
-    return (
-      <nav className={`bg-white sticky top-0 z-50 transition-all duration-300 ${isScrolled ? 'shadow-md border-b-0' : 'border-b border-gray-100'}`}>
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between py-3">
-            <Link href="/" className="text-2xl md:text-3xl font-bold text-black">
-              Kaazbazar
-            </Link>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={toggleLanguage}
-                className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-full hover:border-gray-500 hover:bg-gray-50 transition-all duration-300 text-black"
-              >
-                <Globe className="w-4 h-4" />
-                <span className="text-sm font-medium">
-                  {language === "english" ? "EN" : "BN"}
-                </span>
-              </button>
-              <button
-                onClick={onShowLogin}
-                className="text-black hover:text-gray-600 transition-colors duration-300 font-medium"
-              >
-                {lang.signIn}
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
-    );
-  }
-
-  // If no currentUser, show simplified navbar
-  if (!currentUser) {
-    return (
-      <nav className={`bg-white sticky top-0 z-50 transition-all duration-300 ${isScrolled ? 'shadow-md border-b-0' : 'border-b border-gray-100'}`}>
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between py-3">
-            <Link href="/" className="text-2xl md:text-3xl font-bold text-black">
-              Kaazbazar
-            </Link>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={toggleLanguage}
-                className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-full hover:border-gray-500 hover:bg-gray-50 transition-all duration-300 text-black"
-              >
-                <Globe className="w-4 h-4" />
-                <span className="text-sm font-medium">
-                  {language === "english" ? "EN" : "BN"}
-                </span>
-              </button>
-              <button
-                onClick={onShowLogin}
-                className="text-black hover:text-gray-600 transition-colors duration-300 font-medium"
-              >
-                {lang.signIn}
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
-    );
-  }
 
   return (
     <nav className={`bg-white sticky top-0 z-50 transition-all duration-300 ${isScrolled ? 'shadow-md border-b-0' : 'border-b border-gray-100'}`}>
@@ -337,7 +268,7 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
             </button>
           </div>
 
-          {/* Search Bar */}
+          {/* Search Bar - Visible to everyone */}
           <div ref={searchRef} className={`hidden md:block flex-1 max-w-2xl mx-8 transition-all duration-500 transform ${showSearchBar ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-10 scale-95 pointer-events-none'}`}>
             <div className="relative group">
               <div className={`absolute -inset-0.5 bg-gradient-to-r from-gray-300 to-gray-400 rounded-full blur opacity-0 group-hover:opacity-50 transition duration-500 ${isSearchFocused ? 'opacity-50' : ''}`}></div>
@@ -425,7 +356,7 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
 
           {/* Desktop Right Section */}
           <div className="hidden md:flex items-center space-x-6">
-            {/* Explore Link with Dropdown */}
+            {/* Explore Link - Visible to everyone */}
             <div className="relative group">
               <button className="flex items-center gap-1 text-black hover:text-gray-600 transition-colors duration-300 font-medium">
                 {lang.explore}
@@ -444,15 +375,17 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
               </div>
             </div>
             
-            {/* Become a Service Provider Link */}
-            <Link 
-              href="/become-provider" 
-              className="text-black hover:text-gray-600 transition-colors duration-300 font-medium"
-            >
-              {lang.becomeProvider}
-            </Link>
+            {/* Become a Service Provider Link - ONLY visible when logged in */}
+            {isAuthenticated && currentUser && (
+              <Link 
+                href="/become-provider" 
+                className="text-black hover:text-gray-600 transition-colors duration-300 font-medium"
+              >
+                {lang.becomeProvider}
+              </Link>
+            )}
             
-            {/* Language Toggle Button */}
+            {/* Language Toggle Button - Visible to everyone */}
             <button
               onClick={toggleLanguage}
               className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-full hover:border-gray-500 hover:bg-gray-50 transition-all duration-300 text-black"
@@ -463,159 +396,159 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
               </span>
             </button>
             
-            {/* User Section */}
-            <div className="relative" ref={userMenuRef}>
-              <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center space-x-3 focus:outline-none group"
-              >
-                <div className="relative">
-                  {currentUser.photoURL ? (
-                    <img 
-                      src={currentUser.photoURL} 
-                      alt={currentUser.name}
-                      className="w-9 h-9 rounded-full object-cover ring-2 ring-transparent group-hover:ring-gray-300 transition-all duration-300"
-                    />
-                  ) : (
-                    <div className="w-9 h-9 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center text-white font-bold group-hover:from-gray-600 group-hover:to-gray-800 transition-all duration-300">
-                      {currentUser.name?.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <div className="absolute -bottom-0.5 -right-0.5">
-                    {isActive ? (
-                      <div className="w-3.5 h-3.5 bg-green-500 rounded-full ring-2 ring-white animate-pulse" />
-                    ) : (
-                      <div className="w-3.5 h-3.5 bg-red-500 rounded-full ring-2 ring-white flex items-center justify-center">
-                        <XCircleIcon className="w-2.5 h-2.5 text-white" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="text-left hidden lg:block">
-                  <p className="text-sm font-semibold text-black">{currentUser.name?.split(' ')[0]}</p>
-                  <p className="text-xs text-gray-500">{currentUser.email}</p>
-                </div>
-                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-300 ${showUserMenu ? 'rotate-180' : ''}`} />
-              </button>
-
-              {/* User Dropdown Menu */}
-              {showUserMenu && (
-                <div className="absolute right-0 mt-3 w-64 bg-white rounded-xl shadow-2xl py-2 border border-gray-100 z-30 animate-fadeInUp">
-                  {/* User Info Header */}
-                  <div className="px-4 py-3 border-b border-gray-100">
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        {currentUser.photoURL ? (
-                          <img 
-                            src={currentUser.photoURL} 
-                            alt={currentUser.name}
-                            className="w-10 h-10 rounded-full object-cover"
-                          />
+            {/* User Section - Shows different based on auth status */}
+            {isAuthenticated && currentUser ? (
+              <>
+                {/* Notification Bell - Only for logged in users */}
+                <NotificationBell />
+                
+                {/* User Menu - Only for logged in users */}
+                <div className="relative" ref={userMenuRef}>
+                  <button
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className="flex items-center space-x-3 focus:outline-none group"
+                  >
+                    <div className="relative">
+                      {currentUser.photoURL ? (
+                        <img 
+                          src={currentUser.photoURL} 
+                          alt={currentUser.name}
+                          className="w-9 h-9 rounded-full object-cover ring-2 ring-transparent group-hover:ring-gray-300 transition-all duration-300"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center text-white font-bold group-hover:from-gray-600 group-hover:to-gray-800 transition-all duration-300">
+                          {currentUser.name?.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="absolute -bottom-0.5 -right-0.5">
+                        {isActive ? (
+                          <div className="w-3.5 h-3.5 bg-green-500 rounded-full ring-2 ring-white animate-pulse" />
                         ) : (
-                          <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-white font-bold">
-                            {currentUser.name?.charAt(0).toUpperCase()}
+                          <div className="w-3.5 h-3.5 bg-red-500 rounded-full ring-2 ring-white flex items-center justify-center">
+                            <XCircleIcon className="w-2.5 h-2.5 text-white" />
                           </div>
                         )}
-                        <div className="absolute -bottom-0.5 -right-0.5">
-                          {isActive ? (
-                            <div className="w-3 h-3 bg-green-500 rounded-full ring-2 ring-white" />
-                          ) : (
-                            <div className="w-3 h-3 bg-red-500 rounded-full ring-2 ring-white flex items-center justify-center">
-                              <XCircleIcon className="w-2 h-2 text-white" />
+                      </div>
+                    </div>
+                    <div className="text-left hidden lg:block">
+                      <p className="text-sm font-semibold text-black">{currentUser.name?.split(' ')[0]}</p>
+                      <p className="text-xs text-gray-500">{currentUser.email}</p>
+                    </div>
+                    <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-300 ${showUserMenu ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {showUserMenu && (
+                    <div className="absolute right-0 mt-3 w-64 bg-white rounded-xl shadow-2xl py-2 border border-gray-100 z-30 animate-fadeInUp">
+                      <div className="px-4 py-3 border-b border-gray-100">
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            {currentUser.photoURL ? (
+                              <img 
+                                src={currentUser.photoURL} 
+                                alt={currentUser.name}
+                                className="w-10 h-10 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-white font-bold">
+                                {currentUser.name?.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <div className="absolute -bottom-0.5 -right-0.5">
+                              {isActive ? (
+                                <div className="w-3 h-3 bg-green-500 rounded-full ring-2 ring-white" />
+                              ) : (
+                                <div className="w-3 h-3 bg-red-500 rounded-full ring-2 ring-white flex items-center justify-center">
+                                  <XCircleIcon className="w-2 h-2 text-white" />
+                                </div>
+                              )}
                             </div>
-                          )}
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-semibold text-black text-sm">{currentUser.name}</p>
+                            <p className="text-xs text-gray-500 truncate">{currentUser.email}</p>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex-1">
-                        <p className="font-semibold text-black text-sm">{currentUser.name}</p>
-                        <p className="text-xs text-gray-500 truncate">{currentUser.email}</p>
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* Active Status Toggle */}
-                  <div className="px-4 py-3 border-b border-gray-100">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {isActive ? (
-                          <CheckCircle className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <XCircleIcon className="w-4 h-4 text-red-500" />
-                        )}
-                        <span className="text-sm font-medium">
-                          {isActive ? lang.active : lang.inactive}
-                        </span>
+                      <div className="px-4 py-3 border-b border-gray-100">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {isActive ? (
+                              <CheckCircle className="w-4 h-4 text-green-500" />
+                            ) : (
+                              <XCircleIcon className="w-4 h-4 text-red-500" />
+                            )}
+                            <span className="text-sm font-medium">
+                              {isActive ? lang.active : lang.inactive}
+                            </span>
+                          </div>
+                          <button
+                            onClick={toggleActiveStatus}
+                            disabled={updatingStatus}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                              isActive ? 'bg-green-600' : 'bg-gray-300'
+                            } ${updatingStatus ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                isActive ? 'translate-x-6' : 'translate-x-1'
+                              }`}
+                            />
+                          </button>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1.5">
+                          {isActive 
+                            ? "✓ You're visible to customers" 
+                            : "✗ You're hidden from customers"}
+                        </p>
                       </div>
+
+                      <div className="py-2">
+                        <Link
+                          href="/dashboard"
+                          className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
+                          onClick={() => setShowUserMenu(false)}
+                        >
+                          <LayoutDashboard className="w-4 h-4" />
+                          <span className="text-sm">{lang.dashboard}</span>
+                        </Link>
+                      </div>
+
+                      <hr className="my-1" />
+                      
                       <button
-                        onClick={toggleActiveStatus}
-                        disabled={updatingStatus}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                          isActive ? 'bg-green-600' : 'bg-gray-300'
-                        } ${updatingStatus ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        onClick={handleLogoutClick}
+                        disabled={isLoggingOut}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
                       >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            isActive ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                        />
+                        {isLoggingOut ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                            <span className="text-sm font-medium">{lang.loggingOut}</span>
+                          </>
+                        ) : (
+                          <>
+                            <LogOut className="w-4 h-4" />
+                            <span className="text-sm font-medium">{lang.logout}</span>
+                          </>
+                        )}
                       </button>
                     </div>
-                    <p className="text-xs text-gray-400 mt-1.5">
-                      {isActive 
-                        ? "✓ You're visible to customers" 
-                        : "✗ You're hidden from customers"}
-                    </p>
-                  </div>
-
-                  {/* Dashboard Link */}
-                  <Link
-                    href="/dashboard"
-                    className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
-                    onClick={() => setShowUserMenu(false)}
-                  >
-                    <LayoutDashboard className="w-4 h-4" />
-                    <span className="text-sm">{lang.dashboard}</span>
-                  </Link>
-
-                  {/* Admin Dashboard Link - Only visible to admin users */}
-                  {isAdmin && (
-                    <Link
-                      href="/admin"
-                      className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
-                      onClick={() => setShowUserMenu(false)}
-                    >
-                      <ShieldCheck className="w-4 h-4" />
-                      <span className="text-sm">{lang.adminDashboard}</span>
-                    </Link>
                   )}
-
-                  <hr className="my-1" />
-                  
-                  {/* Logout Button */}
-                  <button
-                    onClick={handleLogoutClick}
-                    disabled={isLoggingOut}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
-                  >
-                    {isLoggingOut ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
-                        <span className="text-sm font-medium">{lang.loggingOut}</span>
-                      </>
-                    ) : (
-                      <>
-                        <LogOut className="w-4 h-4" />
-                        <span className="text-sm font-medium">{lang.logout}</span>
-                      </>
-                    )}
-                  </button>
                 </div>
-              )}
-            </div>
+              </>
+            ) : (
+              <button
+                onClick={onShowLogin}
+                className="text-black hover:text-gray-600 transition-colors duration-300 font-medium"
+              >
+                {lang.signIn}
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Mobile Search Bar */}
+        {/* Mobile Search Bar - Visible to everyone */}
         <div className={`md:hidden transition-all duration-500 overflow-hidden ${showSearchBar ? 'max-h-24 opacity-100 mt-2 pb-3' : 'max-h-0 opacity-0'}`}>
           <div className="relative">
             <input
@@ -630,7 +563,7 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
         </div>
 
         {/* Mobile Menu */}
-        {isMenuOpen && isAuthenticated && currentUser && (
+        {isMenuOpen && (
           <div className="md:hidden py-4 border-t border-gray-200 space-y-2 animate-slideDown">
             <Link href="/" className="flex items-center gap-3 py-3 text-black hover:text-gray-600 hover:bg-gray-50 px-3 rounded-lg transition-all duration-300">
               <Home className="w-5 h-5" /> {lang.home}
@@ -638,9 +571,13 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
             <Link href="/explore" className="flex items-center gap-3 py-3 text-black hover:text-gray-600 hover:bg-gray-50 px-3 rounded-lg transition-all duration-300">
               <Sparkles className="w-5 h-5" /> {lang.explore}
             </Link>
-            <Link href="/become-provider" className="flex items-center gap-3 py-3 text-black hover:text-gray-600 hover:bg-gray-50 px-3 rounded-lg transition-all duration-300">
-              <Briefcase className="w-5 h-5" /> {lang.becomeProvider}
-            </Link>
+            
+            {/* Become a Service Provider - Only visible when logged in */}
+            {isAuthenticated && currentUser && (
+              <Link href="/become-provider" className="flex items-center gap-3 py-3 text-black hover:text-gray-600 hover:bg-gray-50 px-3 rounded-lg transition-all duration-300">
+                <Briefcase className="w-5 h-5" /> {lang.becomeProvider}
+              </Link>
+            )}
             
             {/* Mobile Language Toggle */}
             <button
@@ -651,92 +588,91 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
               <span>{language === "english" ? "English" : "বাংলা"}</span>
             </button>
             
-            <div className="flex items-center gap-3 py-3 px-3 border-t border-gray-100 pt-3">
-              <div className="relative">
-                {currentUser.photoURL ? (
-                  <img 
-                    src={currentUser.photoURL} 
-                    alt={currentUser.name}
-                    className="w-10 h-10 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-white font-bold">
-                    {currentUser.name?.charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <div className="absolute -bottom-0.5 -right-0.5">
-                  {isActive ? (
-                    <div className="w-3 h-3 bg-green-500 rounded-full ring-2 ring-white" />
-                  ) : (
-                    <div className="w-3 h-3 bg-red-500 rounded-full ring-2 ring-white flex items-center justify-center">
-                      <XCircleIcon className="w-2 h-2 text-white" />
-                    </div>
-                  )}
+            {isAuthenticated && currentUser ? (
+              <>
+                {/* Notification Bell in Mobile Menu */}
+                <div className="px-3 py-2">
+                  <NotificationBell />
                 </div>
-              </div>
-              <div>
-                <p className="font-semibold text-black">{currentUser.name}</p>
-                <p className="text-xs text-gray-500">{currentUser.email}</p>
-              </div>
-            </div>
-            
-            {/* Active Status Toggle in Mobile */}
-            <div className="flex items-center justify-between py-3 px-3">
-              <div className="flex items-center gap-2">
-                {isActive ? (
-                  <CheckCircle className="w-4 h-4 text-green-500" />
-                ) : (
-                  <XCircleIcon className="w-4 h-4 text-red-500" />
-                )}
-                <span className="text-sm font-medium">
-                  {isActive ? lang.active : lang.inactive}
-                </span>
-              </div>
-              <button
-                onClick={toggleActiveStatus}
-                disabled={updatingStatus}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  isActive ? 'bg-green-600' : 'bg-gray-300'
-                } ${updatingStatus ? 'opacity-50' : ''}`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    isActive ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
+                
+                <div className="flex items-center gap-3 py-3 px-3 border-t border-gray-100 pt-3">
+                  <div className="relative">
+                    {currentUser.photoURL ? (
+                      <img 
+                        src={currentUser.photoURL} 
+                        alt={currentUser.name}
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-white font-bold">
+                        {currentUser.name?.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="absolute -bottom-0.5 -right-0.5">
+                      {isActive ? (
+                        <div className="w-3 h-3 bg-green-500 rounded-full ring-2 ring-white" />
+                      ) : (
+                        <div className="w-3 h-3 bg-red-500 rounded-full ring-2 ring-white flex items-center justify-center">
+                          <XCircleIcon className="w-2 h-2 text-white" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-black">{currentUser.name}</p>
+                    <p className="text-xs text-gray-500">{currentUser.email}</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between py-3 px-3">
+                  <div className="flex items-center gap-2">
+                    {isActive ? (
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <XCircleIcon className="w-4 h-4 text-red-500" />
+                    )}
+                    <span className="text-sm font-medium">
+                      {isActive ? lang.active : lang.inactive}
+                    </span>
+                  </div>
+                  <button
+                    onClick={toggleActiveStatus}
+                    disabled={updatingStatus}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      isActive ? 'bg-green-600' : 'bg-gray-300'
+                    } ${updatingStatus ? 'opacity-50' : ''}`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        isActive ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+                
+                <Link href="/dashboard" className="flex items-center gap-3 py-3 text-black hover:text-gray-600 hover:bg-gray-50 px-3 rounded-lg transition-all duration-300">
+                  <LayoutDashboard className="w-5 h-5" /> {lang.dashboard}
+                </Link>
+                
+                <button onClick={handleLogoutClick} disabled={isLoggingOut} className="flex items-center gap-3 w-full text-left py-3 text-red-600 hover:bg-red-50 px-3 rounded-lg transition-all duration-300 disabled:opacity-50">
+                  {isLoggingOut ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                      <span>{lang.loggingOut}</span>
+                    </>
+                  ) : (
+                    <>
+                      <LogOut className="w-5 h-5" />
+                      <span>{lang.logout}</span>
+                    </>
+                  )}
+                </button>
+              </>
+            ) : (
+              <button onClick={onShowLogin} className="flex items-center gap-3 w-full text-left py-3 text-black hover:text-gray-600 hover:bg-gray-50 px-3 rounded-lg transition-all duration-300 font-medium">
+                <User className="w-5 h-5" /> {lang.signIn}
               </button>
-            </div>
-            
-            {/* Dashboard Link in Mobile */}
-            <Link href="/dashboard" className="flex items-center gap-3 py-3 text-black hover:text-gray-600 hover:bg-gray-50 px-3 rounded-lg transition-all duration-300">
-              <LayoutDashboard className="w-5 h-5" /> {lang.dashboard}
-            </Link>
-            
-            {/* Admin Dashboard Link in Mobile - Only for admin */}
-            {isAdmin && (
-              <Link href="/admin" className="flex items-center gap-3 py-3 text-black hover:text-gray-600 hover:bg-gray-50 px-3 rounded-lg transition-all duration-300">
-                <ShieldCheck className="w-5 h-5" /> {lang.adminDashboard}
-              </Link>
             )}
-            
-            {/* Logout Button in Mobile */}
-            <button 
-              onClick={handleLogoutClick} 
-              disabled={isLoggingOut}
-              className="flex items-center gap-3 w-full text-left py-3 text-red-600 hover:bg-red-50 px-3 rounded-lg transition-all duration-300 disabled:opacity-50"
-            >
-              {isLoggingOut ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
-                  <span>{lang.loggingOut}</span>
-                </>
-              ) : (
-                <>
-                  <LogOut className="w-5 h-5" />
-                  <span>{lang.logout}</span>
-                </>
-              )}
-            </button>
           </div>
         )}
       </div>

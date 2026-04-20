@@ -20,6 +20,7 @@ import {
   markMessagesAsRead,
   updateUserStatus
 } from "@/lib/chatService";
+import { sendMessageNotification, requestNotificationPermission } from "@/lib/notificationService";
 
 export default function MessagesComponent() {
   const { currentUser } = useAuth();
@@ -30,7 +31,18 @@ export default function MessagesComponent() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [sending, setSending] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const messagesEndRef = useRef(null);
+  const previousMessagesRef = useRef([]);
+
+  // Request notification permission on mount
+  useEffect(() => {
+    const initNotifications = async () => {
+      const granted = await requestNotificationPermission();
+      setNotificationsEnabled(granted);
+    };
+    initNotifications();
+  }, []);
 
   // Load conversations
   useEffect(() => {
@@ -76,7 +88,31 @@ export default function MessagesComponent() {
       
       // Listen to real-time messages
       const unsubscribe = listenToMessages(selectedChat.id, (newMessages) => {
+        // Check for new messages
+        const previousMessages = previousMessagesRef.current;
+        const lastMessage = newMessages[newMessages.length - 1];
+        const previousLastMessage = previousMessages[previousMessages.length - 1];
+        
+        // If there's a new message from other user
+        if (lastMessage && 
+            lastMessage.senderId !== currentUser.uid && 
+            (!previousLastMessage || previousLastMessage.id !== lastMessage.id)) {
+          
+          // Send notification
+          sendMessageNotification(
+            currentUser.uid,
+            selectedChat.name,
+            lastMessage.text,
+            selectedChat.id
+          );
+          
+          // Play notification sound
+          playNotificationSound();
+        }
+        
         setMessages(newMessages);
+        previousMessagesRef.current = newMessages;
+        
         // Mark as read when new messages arrive
         markMessagesAsRead(selectedChat.id, currentUser.uid);
       });
@@ -102,6 +138,11 @@ export default function MessagesComponent() {
     }
   }, [conversations]);
 
+  const playNotificationSound = () => {
+    const audio = new Audio("/notification.mp3");
+    audio.play().catch(e => console.log("Audio play failed:", e));
+  };
+
   const handleSendMessage = async () => {
     if (!newMessage.trim() || sending) return;
     if (!selectedChat || !selectedChat.userId) {
@@ -115,7 +156,7 @@ export default function MessagesComponent() {
       senderId: currentUser.uid,
       senderName: currentUser.name,
       senderPhoto: currentUser.photoURL || "",
-      receiverId: selectedChat.userId,  // ← Make sure this is defined
+      receiverId: selectedChat.userId,
       timestamp: new Date(),
       read: false,
       delivered: true
@@ -158,6 +199,11 @@ export default function MessagesComponent() {
           <div className="p-4 border-b border-gray-200 bg-white">
             <h1 className="text-xl font-bold text-gray-800">Messages</h1>
             <p className="text-sm text-gray-500 mt-1">You have {conversations.filter(c => c.unread > 0).length} unread messages</p>
+            {!notificationsEnabled && (
+              <p className="text-xs text-yellow-600 mt-2">
+                ⚡ Notifications disabled. Allow notifications to get message alerts.
+              </p>
+            )}
           </div>
 
           {/* Search */}
@@ -281,10 +327,10 @@ export default function MessagesComponent() {
                   <p className="text-sm text-gray-400">Send a message to start the conversation</p>
                 </div>
               ) : (
-                messages.map((msg) => (
+                messages.map((msg, index) => (
                   <div
-                    key={msg.id}
-                    className={`flex ${msg.senderId === currentUser.uid ? "justify-end" : "justify-start"}`}
+                    key={msg.id || index}
+                    className={`flex ${msg.senderId === currentUser.uid ? "justify-end" : "justify-start"} animate-fadeIn`}
                   >
                     <div
                       className={`max-w-[70%] rounded-2xl px-4 py-2 ${
@@ -294,9 +340,22 @@ export default function MessagesComponent() {
                       }`}
                     >
                       <p className="text-sm break-words">{msg.text}</p>
-                      <div className={`text-xs mt-1 ${msg.senderId === currentUser.uid ? "text-gray-400" : "text-gray-400"}`}>
-                        {msg.timestamp?.toDate?.().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 
-                         new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      <div className={`text-xs mt-1 flex items-center gap-1 ${msg.senderId === currentUser.uid ? "text-gray-400" : "text-gray-400"}`}>
+                        <span>
+                          {msg.timestamp?.toDate?.().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 
+                           new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        {msg.senderId === currentUser.uid && (
+                          <>
+                            {msg.read ? (
+                              <CheckCheck className="w-3 h-3 text-blue-500" />
+                            ) : msg.delivered ? (
+                              <CheckCheck className="w-3 h-3 text-gray-500" />
+                            ) : (
+                              <Clock className="w-3 h-3 text-gray-500" />
+                            )}
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
