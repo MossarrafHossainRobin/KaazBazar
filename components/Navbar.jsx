@@ -26,7 +26,8 @@ import {
   LayoutDashboard,
   Package,
   CheckCircle,
-  XCircle as XCircleIcon
+  XCircle as XCircleIcon,
+  ShieldCheck
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
@@ -47,6 +48,9 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
   const router = useRouter();
   const { language, toggleLanguage, t } = useLanguage();
   const { currentUser, logout, isAuthenticated, setCurrentUser } = useAuth();
+
+  // Check if user is admin
+  const isAdmin = currentUser?.role === "admin";
 
   // Service Categories Data
   const serviceCategories = [
@@ -159,11 +163,8 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
     setShowUserMenu(false);
     
     try {
-      // Delete session cookie
       await fetch('/api/auth/session', { method: 'DELETE' });
-      // Call logout from AuthContext
       await logout();
-      // Redirect to home
       router.push("/");
     } catch (error) {
       console.error("Logout error:", error);
@@ -212,6 +213,7 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
       topRated: "Top Rated",
       nearYou: "Near You",
       dashboard: "Dashboard",
+      adminDashboard: "Admin Dashboard",
       savedItems: "Saved Items",
       recentActivity: "Recent Activity",
       accountSettings: "Account Settings",
@@ -236,6 +238,7 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
       topRated: "টপ রেটেড",
       nearYou: "আপনার কাছাকাছি",
       dashboard: "ড্যাশবোর্ড",
+      adminDashboard: "অ্যাডমিন ড্যাশবোর্ড",
       savedItems: "সেভ করা আইটেম",
       recentActivity: "রিসেন্ট অ্যাক্টিভিটি",
       accountSettings: "অ্যাকাউন্ট সেটিংস",
@@ -565,16 +568,26 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
                   </div>
 
                   {/* Dashboard Link */}
-                  <div className="py-2">
+                  <Link
+                    href="/dashboard"
+                    className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
+                    onClick={() => setShowUserMenu(false)}
+                  >
+                    <LayoutDashboard className="w-4 h-4" />
+                    <span className="text-sm">{lang.dashboard}</span>
+                  </Link>
+
+                  {/* Admin Dashboard Link - Only visible to admin users */}
+                  {isAdmin && (
                     <Link
-                      href="/dashboard"
+                      href="/admin"
                       className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
                       onClick={() => setShowUserMenu(false)}
                     >
-                      <LayoutDashboard className="w-4 h-4" />
-                      <span className="text-sm">{lang.dashboard}</span>
+                      <ShieldCheck className="w-4 h-4" />
+                      <span className="text-sm">{lang.adminDashboard}</span>
                     </Link>
-                  </div>
+                  )}
 
                   <hr className="my-1" />
                   
@@ -698,6 +711,13 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
             <Link href="/dashboard" className="flex items-center gap-3 py-3 text-black hover:text-gray-600 hover:bg-gray-50 px-3 rounded-lg transition-all duration-300">
               <LayoutDashboard className="w-5 h-5" /> {lang.dashboard}
             </Link>
+            
+            {/* Admin Dashboard Link in Mobile - Only for admin */}
+            {isAdmin && (
+              <Link href="/admin" className="flex items-center gap-3 py-3 text-black hover:text-gray-600 hover:bg-gray-50 px-3 rounded-lg transition-all duration-300">
+                <ShieldCheck className="w-5 h-5" /> {lang.adminDashboard}
+              </Link>
+            )}
             
             {/* Logout Button in Mobile */}
             <button 
