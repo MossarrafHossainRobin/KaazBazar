@@ -6,15 +6,13 @@ import { useLanguage } from "@/context/LanguageContext";
 export default function HeroSection({ searchQuery, setSearchQuery }) {
   const { t } = useLanguage();
 
+  // Service Categories Array - এখানে সঠিক জায়গায় ডিফাইন করা হয়েছে
   const serviceCategories = [
-    { name: t.electrician, href: "/services/electrician" },
-    { name: t.plumber, href: "/services/plumber" },
-    { name: t.carpenter, href: "/services/carpenter" },
-    { name: t.gardener, href: "/services/gardener" },
-    { name: t.painter, href: "/services/painter" },
-    { name: t.handyman, href: "/services/handyman" },
-    { name: t.cleaner, href: "/services/cleaner" },
-    { name: t.acTechnician, href: "/services/ac" }
+    { name: "Electrician", icon: "⚡", href: "/services/electrician" },
+    { name: "Plumber", icon: "🔧", href: "/services/plumber" },
+    { name: "Carpenter", icon: "🪚", href: "/services/carpenter" },
+    { name: "Gardener", icon: "🌱", href: "/services/gardener" },
+    { name: "Others", icon: "📦", href: "/services/others" }
   ];
 
   const popularSearches = [

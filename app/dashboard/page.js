@@ -16,7 +16,8 @@ import {
   Menu,
   X,
   ChevronRight,
-  LogOut
+  LogOut,
+  ArrowLeft
 } from "lucide-react";
 
 // Import all dashboard components
@@ -77,6 +78,17 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Back Button to Home - Corner (Top Left) */}
+      <div className="fixed top-4 left-4 z-50">
+        <Link
+          href="/"
+          className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg shadow-md hover:bg-gray-50 transition"
+        >
+          <ArrowLeft className="w-4 h-4 text-gray-600" />
+          <span className="text-sm text-gray-600">Back to Home</span>
+        </Link>
+      </div>
+
       {/* Mobile Menu Button */}
       <div className="lg:hidden fixed top-20 left-4 z-50">
         <button

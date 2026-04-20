@@ -1,25 +1,25 @@
 "use client";
 import { createContext, useContext, useState, useEffect } from "react";
 import { auth, onAuthStateChanged, signOut } from "@/lib/firebase";
-import { getUserProfile } from "@/lib/userService";
+import { getUserProfile } from "@/lib/firestoreService";
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    // Check localStorage for cached user first
     const cachedUser = localStorage.getItem("kaazbazar_user");
     if (cachedUser) {
-      setCurrentUser(JSON.parse(cachedUser));
+      const user = JSON.parse(cachedUser);
+      setCurrentUser(user);
+      setIsAuthenticated(true);
     }
 
-    // Listen to Firebase auth state
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // User is signed in
         const result = await getUserProfile(user.uid);
         
         let userData;
@@ -34,15 +34,19 @@ export function AuthProvider({ children }) {
             provider: "email",
             role: "user",
             totalJobs: 0,
-            listings: 0
+            listings: 0,
+            isActive: true
           };
         }
         
         setCurrentUser(userData);
+        setIsAuthenticated(true);
         localStorage.setItem("kaazbazar_user", JSON.stringify(userData));
       } else {
         setCurrentUser(null);
+        setIsAuthenticated(false);
         localStorage.removeItem("kaazbazar_user");
+        sessionStorage.clear();
       }
       setLoading(false);
     });
@@ -50,16 +54,19 @@ export function AuthProvider({ children }) {
     return () => unsubscribe();
   }, []);
 
+  // Dynamic logout without page reload
   const logout = async () => {
     try {
       await signOut(auth);
-      // Clear state immediately
+      // Clear all state immediately
       setCurrentUser(null);
+      setIsAuthenticated(false);
       localStorage.removeItem("kaazbazar_user");
-      // Force a small delay to ensure Firebase state updates
-      await new Promise(resolve => setTimeout(resolve, 100));
+      sessionStorage.clear();
+      return true;
     } catch (error) {
       console.error("Logout error:", error);
+      return false;
     }
   };
 
@@ -69,7 +76,7 @@ export function AuthProvider({ children }) {
       setCurrentUser,
       loading, 
       logout, 
-      isAuthenticated: !!currentUser 
+      isAuthenticated
     }}>
       {children}
     </AuthContext.Provider>

@@ -22,10 +22,15 @@ import {
   Clock,
   Shield,
   UserCircle,
-  HelpCircle
+  HelpCircle,
+  LayoutDashboard,
+  Package,
+  CheckCircle,
+  XCircle as XCircleIcon
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
+import { updateUserProfile, getUserProfile } from "@/lib/firestoreService";
 
 export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -34,11 +39,13 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showServiceSuggestions, setShowServiceSuggestions] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [isActive, setIsActive] = useState(true);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
   const searchRef = useRef(null);
   const userMenuRef = useRef(null);
   const router = useRouter();
   const { language, toggleLanguage, t } = useLanguage();
-  const { currentUser, logout, isAuthenticated } = useAuth();
+  const { currentUser, logout, isAuthenticated, setCurrentUser } = useAuth();
 
   // Service Categories Data
   const serviceCategories = [
@@ -93,6 +100,26 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
       )
     : serviceCategories;
 
+  // Fetch user active status from database
+  useEffect(() => {
+    if (currentUser) {
+      fetchUserStatus();
+    }
+  }, [currentUser]);
+
+  const fetchUserStatus = async () => {
+    try {
+      const result = await getUserProfile(currentUser.uid);
+      if (result.success && result.data.isActive !== undefined) {
+        setIsActive(result.data.isActive);
+        // Update currentUser context
+        setCurrentUser({ ...currentUser, isActive: result.data.isActive });
+      }
+    } catch (error) {
+      console.error("Error fetching user status:", error);
+    }
+  };
+
   // Handle scroll event
   useEffect(() => {
     const handleScroll = () => {
@@ -135,6 +162,25 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
     router.push(path);
   };
 
+  // Toggle active status and save to database
+  const toggleActiveStatus = async () => {
+    setUpdatingStatus(true);
+    const newStatus = !isActive;
+    setIsActive(newStatus);
+    
+    // Save to Firebase
+    const result = await updateUserProfile(currentUser.uid, { isActive: newStatus });
+    if (result.success) {
+      // Update currentUser context
+      setCurrentUser({ ...currentUser, isActive: newStatus });
+    } else {
+      // Revert if failed
+      setIsActive(!newStatus);
+      alert("Failed to update status");
+    }
+    setUpdatingStatus(false);
+  };
+
   // Translations
   const translations = {
     english: {
@@ -156,7 +202,9 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
       recentActivity: "Recent Activity",
       accountSettings: "Account Settings",
       helpSupport: "Help & Support",
-      becomeSeller: "Become a Seller"
+      becomeSeller: "Become a Seller",
+      active: "Active",
+      inactive: "Inactive"
     },
     bengali: {
       explore: "এক্সপ্লোর",
@@ -177,7 +225,9 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
       recentActivity: "রিসেন্ট অ্যাক্টিভিটি",
       accountSettings: "অ্যাকাউন্ট সেটিংস",
       helpSupport: "হেল্প ও সাপোর্ট",
-      becomeSeller: "সেলার হোন"
+      becomeSeller: "সেলার হোন",
+      active: "সক্রিয়",
+      inactive: "নিষ্ক্রিয়"
     }
   };
 
@@ -207,7 +257,6 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
           {/* Search Bar with Service Suggestions */}
           <div ref={searchRef} className={`hidden md:block flex-1 max-w-2xl mx-8 transition-all duration-500 transform ${showSearchBar ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-10 scale-95 pointer-events-none'}`}>
             <div className="relative group">
-              {/* Search Bar Glow Effect */}
               <div className={`absolute -inset-0.5 bg-gradient-to-r from-gray-300 to-gray-400 rounded-full blur opacity-0 group-hover:opacity-50 transition duration-500 ${isSearchFocused ? 'opacity-50' : ''}`}></div>
               
               <div className="relative">
@@ -244,7 +293,6 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
                 <Search className={`absolute right-4 top-3.5 w-5 h-5 transition-all duration-300 ${isSearchFocused ? 'text-gray-600 scale-110' : 'text-gray-400 group-hover:text-gray-600'}`} />
               </div>
 
-              {/* Service Suggestions Dropdown */}
               {showServiceSuggestions && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 max-h-96 overflow-y-auto z-20 animate-fadeInUp">
                   <div className="p-4">
@@ -339,17 +387,29 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
                   onClick={() => setShowUserMenu(!showUserMenu)}
                   className="flex items-center space-x-3 focus:outline-none group"
                 >
-                  {currentUser.photoURL ? (
-                    <img 
-                      src={currentUser.photoURL} 
-                      alt={currentUser.name}
-                      className="w-9 h-9 rounded-full object-cover ring-2 ring-transparent group-hover:ring-gray-300 transition-all duration-300"
-                    />
-                  ) : (
-                    <div className="w-9 h-9 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center text-white font-bold group-hover:from-gray-600 group-hover:to-gray-800 transition-all duration-300">
-                      {currentUser.name?.charAt(0).toUpperCase()}
+                  <div className="relative">
+                    {currentUser.photoURL ? (
+                      <img 
+                        src={currentUser.photoURL} 
+                        alt={currentUser.name}
+                        className="w-9 h-9 rounded-full object-cover ring-2 ring-transparent group-hover:ring-gray-300 transition-all duration-300"
+                      />
+                    ) : (
+                      <div className="w-9 h-9 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center text-white font-bold group-hover:from-gray-600 group-hover:to-gray-800 transition-all duration-300">
+                        {currentUser.name?.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    {/* Status Indicator on Avatar */}
+                    <div className="absolute -bottom-0.5 -right-0.5">
+                      {isActive ? (
+                        <div className="w-3.5 h-3.5 bg-green-500 rounded-full ring-2 ring-white animate-pulse" />
+                      ) : (
+                        <div className="w-3.5 h-3.5 bg-red-500 rounded-full ring-2 ring-white flex items-center justify-center">
+                          <XCircleIcon className="w-2.5 h-2.5 text-white" />
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
                   <div className="text-left hidden lg:block">
                     <p className="text-sm font-semibold text-black">{currentUser.name?.split(' ')[0]}</p>
                     <p className="text-xs text-gray-500">{currentUser.email}</p>
@@ -357,104 +417,86 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
                   <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-300 ${showUserMenu ? 'rotate-180' : ''}`} />
                 </button>
 
-                {/* User Dropdown Menu */}
+                {/* User Dropdown Menu - Only Dashboard and Logout */}
                 {showUserMenu && (
-                  <div className="absolute right-0 mt-3 w-72 bg-white rounded-xl shadow-2xl py-2 border border-gray-100 z-30 animate-fadeInUp">
+                  <div className="absolute right-0 mt-3 w-64 bg-white rounded-xl shadow-2xl py-2 border border-gray-100 z-30 animate-fadeInUp">
                     {/* User Info Header */}
                     <div className="px-4 py-3 border-b border-gray-100">
                       <div className="flex items-center gap-3">
-                        {currentUser.photoURL ? (
-                          <img 
-                            src={currentUser.photoURL} 
-                            alt={currentUser.name}
-                            className="w-12 h-12 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                            {currentUser.name?.charAt(0).toUpperCase()}
+                        <div className="relative">
+                          {currentUser.photoURL ? (
+                            <img 
+                              src={currentUser.photoURL} 
+                              alt={currentUser.name}
+                              className="w-10 h-10 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-white font-bold">
+                              {currentUser.name?.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          {/* Status Indicator in Dropdown */}
+                          <div className="absolute -bottom-0.5 -right-0.5">
+                            {isActive ? (
+                              <div className="w-3 h-3 bg-green-500 rounded-full ring-2 ring-white" />
+                            ) : (
+                              <div className="w-3 h-3 bg-red-500 rounded-full ring-2 ring-white flex items-center justify-center">
+                                <XCircleIcon className="w-2 h-2 text-white" />
+                              </div>
+                            )}
                           </div>
-                        )}
+                        </div>
                         <div className="flex-1">
-                          <p className="font-semibold text-black">{currentUser.name}</p>
-                          <p className="text-xs text-gray-500">{currentUser.email}</p>
-                          <span className="text-xs text-green-600 mt-1 inline-block">● Active</span>
+                          <p className="font-semibold text-black text-sm">{currentUser.name}</p>
+                          <p className="text-xs text-gray-500 truncate">{currentUser.email}</p>
                         </div>
                       </div>
                     </div>
 
-                    {/* Menu Items */}
+                    {/* Active Status Toggle */}
+                    <div className="px-4 py-3 border-b border-gray-100">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {isActive ? (
+                            <CheckCircle className="w-4 h-4 text-green-500" />
+                          ) : (
+                            <XCircleIcon className="w-4 h-4 text-red-500" />
+                          )}
+                          <span className="text-sm font-medium">
+                            {isActive ? lang.active : lang.inactive}
+                          </span>
+                        </div>
+                        <button
+                          onClick={toggleActiveStatus}
+                          disabled={updatingStatus}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                            isActive ? 'bg-green-600' : 'bg-gray-300'
+                          } ${updatingStatus ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              isActive ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1.5">
+                        {isActive 
+                          ? "✓ You're visible to customers" 
+                          : "✗ You're hidden from customers"}
+                      </p>
+                    </div>
+
+                    {/* Menu Items - Only Dashboard */}
                     <div className="py-2">
-                      <button
-                        onClick={() => handleNavigation('/dashboard')}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
+                      <Link
+                        href="/dashboard"
+                        className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
+                        onClick={() => setShowUserMenu(false)}
                       >
                         <LayoutDashboard className="w-4 h-4" />
                         <span className="text-sm">{lang.dashboard}</span>
-                      </button>
-                      
-                      <button
-                        onClick={() => handleNavigation('/profile')}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
-                      >
-                        <UserCircle className="w-4 h-4" />
-                        <span className="text-sm">{lang.profile}</span>
-                      </button>
-                      
-                      <button
-                        onClick={() => handleNavigation('/my-orders')}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
-                      >
-                        <Briefcase className="w-4 h-4" />
-                        <span className="text-sm">{lang.myOrders}</span>
-                      </button>
-                      
-                      <button
-                        onClick={() => handleNavigation('/messages')}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
-                      >
-                        <MessageCircle className="w-4 h-4" />
-                        <span className="text-sm">{lang.messages}</span>
-                      </button>
-                      
-                      <button
-                        onClick={() => handleNavigation('/saved-items')}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
-                      >
-                        <Heart className="w-4 h-4" />
-                        <span className="text-sm">{lang.savedItems}</span>
-                      </button>
-                      
-                      <button
-                        onClick={() => handleNavigation('/recent-activity')}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
-                      >
-                        <Clock className="w-4 h-4" />
-                        <span className="text-sm">{lang.recentActivity}</span>
-                      </button>
-                      
-                      <button
-                        onClick={() => handleNavigation('/settings')}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
-                      >
-                        <Settings className="w-4 h-4" />
-                        <span className="text-sm">{lang.accountSettings}</span>
-                      </button>
-                      
-                      <button
-                        onClick={() => handleNavigation('/become-seller')}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
-                      >
-                        <Shield className="w-4 h-4" />
-                        <span className="text-sm">{lang.becomeSeller}</span>
-                      </button>
-                      
-                      <button
-                        onClick={() => handleNavigation('/help')}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
-                      >
-                        <HelpCircle className="w-4 h-4" />
-                        <span className="text-sm">{lang.helpSupport}</span>
-                      </button>
+                      </Link>
                     </div>
 
                     <hr className="my-1" />
@@ -520,34 +562,66 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
             {isAuthenticated && currentUser ? (
               <>
                 <div className="flex items-center gap-3 py-3 px-3 border-t border-gray-100 pt-3">
-                  {currentUser.photoURL ? (
-                    <img 
-                      src={currentUser.photoURL} 
-                      alt={currentUser.name}
-                      className="w-10 h-10 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-white font-bold">
-                      {currentUser.name?.charAt(0).toUpperCase()}
+                  <div className="relative">
+                    {currentUser.photoURL ? (
+                      <img 
+                        src={currentUser.photoURL} 
+                        alt={currentUser.name}
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-white font-bold">
+                        {currentUser.name?.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="absolute -bottom-0.5 -right-0.5">
+                      {isActive ? (
+                        <div className="w-3 h-3 bg-green-500 rounded-full ring-2 ring-white" />
+                      ) : (
+                        <div className="w-3 h-3 bg-red-500 rounded-full ring-2 ring-white flex items-center justify-center">
+                          <XCircleIcon className="w-2 h-2 text-white" />
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
                   <div>
                     <p className="font-semibold text-black">{currentUser.name}</p>
                     <p className="text-xs text-gray-500">{currentUser.email}</p>
                   </div>
                 </div>
+                
+                {/* Active Status Toggle in Mobile */}
+                <div className="flex items-center justify-between py-3 px-3">
+                  <div className="flex items-center gap-2">
+                    {isActive ? (
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <XCircleIcon className="w-4 h-4 text-red-500" />
+                    )}
+                    <span className="text-sm font-medium">
+                      {isActive ? lang.active : lang.inactive}
+                    </span>
+                  </div>
+                  <button
+                    onClick={toggleActiveStatus}
+                    disabled={updatingStatus}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      isActive ? 'bg-green-600' : 'bg-gray-300'
+                    } ${updatingStatus ? 'opacity-50' : ''}`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        isActive ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+                
+                {/* Only Dashboard Link in Mobile */}
                 <Link href="/dashboard" className="flex items-center gap-3 py-3 text-black hover:text-gray-600 hover:bg-gray-50 px-3 rounded-lg transition-all duration-300">
                   <LayoutDashboard className="w-5 h-5" /> {lang.dashboard}
                 </Link>
-                <Link href="/profile" className="flex items-center gap-3 py-3 text-black hover:text-gray-600 hover:bg-gray-50 px-3 rounded-lg transition-all duration-300">
-                  <User className="w-5 h-5" /> {lang.profile}
-                </Link>
-                <Link href="/my-orders" className="flex items-center gap-3 py-3 text-black hover:text-gray-600 hover:bg-gray-50 px-3 rounded-lg transition-all duration-300">
-                  <Briefcase className="w-5 h-5" /> {lang.myOrders}
-                </Link>
-                <Link href="/messages" className="flex items-center gap-3 py-3 text-black hover:text-gray-600 hover:bg-gray-50 px-3 rounded-lg transition-all duration-300">
-                  <MessageCircle className="w-5 h-5" /> {lang.messages}
-                </Link>
+                
                 <button onClick={handleLogoutClick} className="flex items-center gap-3 w-full text-left py-3 text-red-600 hover:bg-red-50 px-3 rounded-lg transition-all duration-300">
                   <LogOut className="w-5 h-5" /> {lang.logout}
                 </button>
@@ -563,6 +637,3 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
     </nav>
   );
 }
-
-// Import missing icons at the top
-import { LayoutDashboard } from "lucide-react";
