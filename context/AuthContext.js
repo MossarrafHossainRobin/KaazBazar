@@ -2,8 +2,11 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect } from "react";
-import { auth, onAuthStateChanged, signOut } from "@/lib/firebase";
-import { getUserProfile } from "@/lib/firestoreService";
+import { auth, db } from "@/lib/firebaseClient";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+
+// ... rest of AuthContext (using auth and db from firebaseClient)
 
 const AuthContext = createContext();
 
