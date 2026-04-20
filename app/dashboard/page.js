@@ -1,4 +1,6 @@
+// app/dashboard/page.js
 "use client";
+import dynamic from "next/dynamic";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -20,16 +22,21 @@ import {
   ArrowLeft
 } from "lucide-react";
 
-// Import all dashboard components
+// Import non-chat components normally
 import DashboardHome from "@/components/dashboard/DashboardHome";
 import ProfileComponent from "@/components/dashboard/ProfileComponent";
 import MyOrdersComponent from "@/components/dashboard/MyOrdersComponent";
-import MessagesComponent from "@/components/dashboard/MessagesComponent";
 import SavedItemsComponent from "@/components/dashboard/SavedItemsComponent";
 import RecentActivityComponent from "@/components/dashboard/RecentActivityComponent";
 import SettingsComponent from "@/components/dashboard/SettingsComponent";
 import BecomeSellerComponent from "@/components/dashboard/BecomeSellerComponent";
 import HelpSupportComponent from "@/components/dashboard/HelpSupportComponent";
+
+// ✅ Dynamically import MessagesComponent with SSR disabled
+const MessagesComponent = dynamic(
+  () => import("@/components/dashboard/MessagesComponent"),
+  { ssr: false }
+);
 
 const menuItems = [
   { id: "dashboard", name: "Dashboard", icon: LayoutDashboard, component: DashboardHome },
@@ -87,7 +94,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Back Button to Home - Corner (Top Left) */}
+      {/* Back Button to Home */}
       <div className="fixed top-4 left-4 z-50">
         <Link
           href="/"
