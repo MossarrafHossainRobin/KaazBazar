@@ -18,23 +18,26 @@ import {
   Loader2,
   TrendingUp,
   Users,
-  ThumbsUp
+  ThumbsUp,
+  CheckCircle,
+  Phone,
+  Heart
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getAllServiceProviders } from "@/lib/firestoreService";
+import { getOrCreateConversation } from "@/lib/chatService";
 
 // Categories data
 const categories = [
-  { id: "all", name: "All", icon: "📋", slug: "all", color: "bg-gray-600" },
-  { id: "electrician", name: "Electrician", icon: "⚡", slug: "electrician", color: "bg-yellow-600" },
-  { id: "plumber", name: "Plumber", icon: "🔧", slug: "plumber", color: "bg-blue-600" },
-  { id: "carpenter", name: "Carpenter", icon: "🪚", slug: "carpenter", color: "bg-orange-600" },
-  { id: "gardener", name: "Gardener", icon: "🌱", slug: "gardener", color: "bg-green-600" },
-  { id: "others", name: "Others", icon: "📦", slug: "others", color: "bg-purple-600" }
+  { id: "all", name: "All", icon: "📋", slug: "all" },
+  { id: "electrician", name: "Electrician", icon: "⚡", slug: "electrician" },
+  { id: "plumber", name: "Plumber", icon: "🔧", slug: "plumber" },
+  { id: "carpenter", name: "Carpenter", icon: "🪚", slug: "carpenter" },
+  { id: "gardener", name: "Gardener", icon: "🌱", slug: "gardener" },
+  { id: "others", name: "Others", icon: "📦", slug: "others" }
 ];
 
-const ITEMS_PER_PAGE = 6;
-
+const ITEMS_PER_PAGE = 20;
 const getCategoryBySlug = (slug) => {
   return categories.find(cat => cat.slug === slug) || categories[0];
 };
@@ -42,25 +45,20 @@ const getCategoryBySlug = (slug) => {
 // Skeleton Loader Component
 const ProviderSkeleton = () => (
   <div className="bg-white rounded-xl shadow-sm overflow-hidden animate-pulse">
-    <div className="h-28 bg-gray-300"></div>
-    <div className="p-4 pt-10">
-      <div className="flex justify-between items-start">
-        <div>
-          <div className="w-32 h-5 bg-gray-300 rounded"></div>
-          <div className="w-24 h-4 bg-gray-200 rounded mt-2"></div>
-        </div>
-        <div className="text-right">
-          <div className="w-16 h-6 bg-gray-300 rounded"></div>
+    <div className="h-48 bg-gray-200"></div>
+    <div className="p-4">
+      <div className="flex items-center gap-3 mb-3">
+        <div className="w-12 h-12 bg-gray-200 rounded-full"></div>
+        <div className="flex-1">
+          <div className="w-32 h-4 bg-gray-200 rounded"></div>
+          <div className="w-24 h-3 bg-gray-200 rounded mt-2"></div>
         </div>
       </div>
-      <div className="mt-3 space-y-2">
-        <div className="w-40 h-4 bg-gray-200 rounded"></div>
-        <div className="w-32 h-4 bg-gray-200 rounded"></div>
-        <div className="w-36 h-4 bg-gray-200 rounded"></div>
-      </div>
-      <div className="mt-4 flex gap-2">
-        <div className="flex-1 h-9 bg-gray-300 rounded-lg"></div>
-        <div className="flex-1 h-9 bg-gray-200 rounded-lg"></div>
+      <div className="w-full h-3 bg-gray-200 rounded mb-2"></div>
+      <div className="w-3/4 h-3 bg-gray-200 rounded"></div>
+      <div className="flex justify-between items-center mt-4">
+        <div className="w-20 h-6 bg-gray-200 rounded"></div>
+        <div className="w-24 h-8 bg-gray-200 rounded-lg"></div>
       </div>
     </div>
   </div>
@@ -110,23 +108,19 @@ export default function ServiceCategoryPage() {
   const applyFilters = () => {
     let filtered = [...providers];
     
-    // Price filter
     filtered = filtered.filter(p => 
       (p.hourlyRate || 500) >= filters.minPrice && 
       (p.hourlyRate || 500) <= filters.maxPrice
     );
     
-    // Rating filter
     filtered = filtered.filter(p => (p.rating || 0) >= filters.minRating);
     
-    // City filter
     if (filters.city) {
       filtered = filtered.filter(p => 
         p.city?.toLowerCase().includes(filters.city.toLowerCase())
       );
     }
     
-    // Sort
     switch(filters.sortBy) {
       case "rating":
         filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
@@ -157,11 +151,6 @@ export default function ServiceCategoryPage() {
     return cat?.icon || "🔧";
   };
 
-  const getCategoryColor = (categoryName) => {
-    const cat = categories.find(c => c.name.toLowerCase() === categoryName?.toLowerCase());
-    return cat?.color || "bg-gray-600";
-  };
-
   const handlePageChange = (page) => {
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -177,9 +166,61 @@ export default function ServiceCategoryPage() {
     });
   };
 
+  // Fixed Chat handler
+  const handleChat = async (provider) => {
+    if (!currentUser) {
+      router.push("/Login");
+      return;
+    }
+    
+    try {
+      // Prepare current user data
+      const currentUserData = {
+        name: currentUser.name,
+        photoURL: currentUser.photoURL,
+        email: currentUser.email
+      };
+      
+      // Prepare provider data
+      const providerData = {
+        name: provider.name,
+        photoURL: provider.photoURL,
+        email: provider.email
+      };
+      
+      // Create or get existing conversation with 4 parameters
+      const conversation = await getOrCreateConversation(
+        currentUser.uid,
+        provider.userId || provider.id,
+        providerData,
+        currentUserData
+      );
+      
+      if (conversation && conversation.id) {
+        // Store conversation ID in localStorage
+        localStorage.setItem("activeConversationId", conversation.id);
+        // Redirect to dashboard with messages tab
+        router.push("/dashboard?tab=messages");
+      } else {
+        console.error("Failed to create/get conversation");
+      }
+    } catch (error) {
+      console.error("Error starting chat:", error);
+    }
+  };
+
+  // Book Now handler
+  const handleBookNow = (provider) => {
+    if (!currentUser) {
+      router.push("/Login");
+      return;
+    }
+    router.push(`/booking/${provider.id}`);
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
+      <div className="min-h-screen bg-white py-8">
         <div className="container mx-auto px-4">
           <div className="mb-8">
             <div className="w-32 h-6 bg-gray-200 rounded animate-pulse mb-4"></div>
@@ -191,8 +232,8 @@ export default function ServiceCategoryPage() {
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+            {[...Array(10)].map((_, i) => (
               <ProviderSkeleton key={i} />
             ))}
           </div>
@@ -202,34 +243,32 @@ export default function ServiceCategoryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-white py-8">
       <div className="container mx-auto px-4">
         {/* Header */}
         <div className="mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 text-gray-600 hover:text-green-600 mb-4 transition">
+          <Link href="/" className="inline-flex items-center gap-2 text-gray-500 hover:text-green-600 mb-4 transition text-sm">
             <ChevronLeft className="w-4 h-4" />
             Back to Home
           </Link>
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className={`w-14 h-14 ${getCategoryColor(currentCategory.name)} rounded-2xl flex items-center justify-center text-3xl shadow-lg`}>
-                {currentCategory.icon}
-              </div>
+              <div className="text-4xl">{currentCategory.icon}</div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-800">{currentCategory.name} Services</h1>
+                <h1 className="text-3xl font-bold text-gray-900">{currentCategory.name} Services</h1>
                 <p className="text-gray-500 mt-1">
                   Find the best {currentCategory.name.toLowerCase()} professionals in your area
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 text-sm text-gray-500 bg-white px-3 py-2 rounded-lg shadow-sm">
+              <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-50 px-3 py-2 rounded-lg">
                 <Users className="w-4 h-4" />
                 <span>{filteredProviders.length} Providers</span>
               </div>
               <button
                 onClick={() => setFilterOpen(!filterOpen)}
-                className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-sm hover:shadow-md transition"
+                className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
               >
                 <Filter className="w-4 h-4" />
                 <span className="text-sm">Filter</span>
@@ -239,20 +278,20 @@ export default function ServiceCategoryPage() {
         </div>
 
         {/* Category Filters */}
-        <div className="bg-white rounded-xl shadow-sm p-4 mb-6 overflow-x-auto">
-          <div className="flex gap-2 min-w-max">
+        <div className="border-b border-gray-200 mb-6 pb-4 overflow-x-auto">
+          <div className="flex gap-1 min-w-max">
             {categories.map((category) => (
               <button
                 key={category.id}
                 onClick={() => handleCategoryChange(category.slug)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                   categorySlug === category.slug
-                    ? `${category.color} text-white shadow-md`
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    ? "bg-green-600 text-white shadow-sm"
+                    : "text-gray-600 hover:bg-gray-100"
                 }`}
               >
-                <span>{category.icon}</span>
-                <span className="text-sm font-medium">{category.name}</span>
+                <span className="mr-1">{category.icon}</span>
+                {category.name}
               </button>
             ))}
           </div>
@@ -260,9 +299,9 @@ export default function ServiceCategoryPage() {
 
         {/* Filter Panel */}
         {filterOpen && (
-          <div className="bg-white rounded-xl shadow-sm p-5 mb-6 animate-fadeIn">
+          <div className="bg-gray-50 rounded-xl p-5 mb-6 animate-fadeIn border border-gray-200">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-gray-800">Filter Providers</h3>
+              <h3 className="font-semibold text-gray-900">Filter Providers</h3>
               <button onClick={() => setFilterOpen(false)} className="text-gray-400 hover:text-gray-600">
                 <X className="w-5 h-5" />
               </button>
@@ -276,14 +315,14 @@ export default function ServiceCategoryPage() {
                     placeholder="Min"
                     value={filters.minPrice}
                     onChange={(e) => setFilters({...filters, minPrice: parseInt(e.target.value) || 0})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-green-500 focus:border-green-500"
                   />
                   <input
                     type="number"
                     placeholder="Max"
                     value={filters.maxPrice}
                     onChange={(e) => setFilters({...filters, maxPrice: parseInt(e.target.value) || 2000})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-green-500 focus:border-green-500"
                   />
                 </div>
               </div>
@@ -292,7 +331,7 @@ export default function ServiceCategoryPage() {
                 <select
                   value={filters.minRating}
                   onChange={(e) => setFilters({...filters, minRating: parseFloat(e.target.value)})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-green-500 focus:border-green-500"
                 >
                   <option value={0}>Any Rating</option>
                   <option value={4}>4+ Stars</option>
@@ -307,7 +346,7 @@ export default function ServiceCategoryPage() {
                   placeholder="Enter city"
                   value={filters.city}
                   onChange={(e) => setFilters({...filters, city: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-green-500 focus:border-green-500"
                 />
               </div>
               <div>
@@ -315,7 +354,7 @@ export default function ServiceCategoryPage() {
                 <select
                   value={filters.sortBy}
                   onChange={(e) => setFilters({...filters, sortBy: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-green-500 focus:border-green-500"
                 >
                   <option value="rating">Top Rated</option>
                   <option value="price_low">Price: Low to High</option>
@@ -342,20 +381,20 @@ export default function ServiceCategoryPage() {
         )}
 
         {/* Results Count */}
-        <div className="mb-6 flex justify-between items-center flex-wrap gap-2">
-          <p className="text-gray-600">
-            Found <span className="font-semibold text-green-600">{filteredProviders.length}</span> service providers
+        <div className="mb-5 flex justify-between items-center flex-wrap gap-2">
+          <p className="text-sm text-gray-500">
+            <span className="font-semibold text-green-600">{filteredProviders.length}</span> services available
           </p>
           {filteredProviders.length > 0 && (
-            <p className="text-sm text-gray-400">
-              Showing {startIndex + 1}-{Math.min(startIndex + ITEMS_PER_PAGE, filteredProviders.length)} of {filteredProviders.length}
+            <p className="text-xs text-gray-400">
+              Page {currentPage} of {totalPages}
             </p>
           )}
         </div>
 
         {/* Providers Grid */}
         {filteredProviders.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm p-12 text-center">
+          <div className="bg-gray-50 rounded-xl p-12 text-center">
             <div className="text-6xl mb-4">🔍</div>
             <h3 className="text-xl font-semibold text-gray-800 mb-2">No service providers found</h3>
             <p className="text-gray-500">Try adjusting your filters or check back later</p>
@@ -368,128 +407,78 @@ export default function ServiceCategoryPage() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
               {currentProviders.map((provider, index) => (
                 <div 
                   key={provider.id} 
-                  className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-lg transition-all duration-300 group animate-fadeInUp"
-                  style={{ animationDelay: `${index * 100}ms` }}
+                  className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 group"
                 >
-                  {/* Provider Header with Cover Image */}
-                  <div className={`relative h-32 bg-gradient-to-r ${getCategoryColor(provider.category)} to-green-700`}>
-                    {/* Profile Image */}
-                    <div className="absolute -bottom-8 left-4">
-                      {provider.photoURL ? (
-                        <img 
-                          src={provider.photoURL} 
-                          alt={provider.name}
-                          className="w-16 h-16 rounded-full border-4 border-white object-cover shadow-md"
-                        />
-                      ) : (
-                        <div className="w-16 h-16 bg-white rounded-full border-4 border-white flex items-center justify-center shadow-md">
-                          <span className="text-2xl font-bold text-green-600">
-                            {provider.name?.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Category Badge */}
-                    <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm rounded-full px-2 py-1 shadow-sm">
-                      <span className="text-xs font-medium text-gray-700">
-                        {getCategoryIcon(provider.category)} {provider.category}
-                      </span>
-                    </div>
-                    
-                    {/* Rating Badge */}
-                    <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm rounded-full px-2 py-1 shadow-sm">
-                      <div className="flex items-center gap-1">
-                        <Star className="w-3 h-3 text-yellow-500 fill-current" />
-                        <span className="text-xs font-medium text-gray-700">{provider.rating || 4.5}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Provider Info */}
-                  <div className="p-4 pt-10">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-bold text-lg text-gray-800 hover:text-green-600 transition">
-                          {provider.name}
-                        </h3>
-                        <div className="flex items-center gap-2 mt-1">
-                          <div className="flex items-center gap-1">
-                            <Star className="w-3 h-3 text-yellow-400 fill-current" />
-                            <span className="text-sm font-medium">{provider.rating || 4.5}</span>
-                          </div>
-                          <span className="text-xs text-gray-400">•</span>
-                          <span className="text-xs text-gray-500">{provider.totalBookings || 0}+ bookings</span>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xl font-bold text-green-600">৳{provider.hourlyRate || 500}</p>
-                        <p className="text-xs text-gray-400">per hour</p>
-                      </div>
-                    </div>
-
-                    {/* Location & Experience */}
-                    <div className="mt-3 space-y-1.5">
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <MapPin className="w-3.5 h-3.5" />
-                        <span className="text-sm">{provider.city || "Dhaka"}, {provider.area || "Uttara"}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Clock className="w-3.5 h-3.5" />
-                        <span className="text-sm">{provider.experience || "3"} years experience</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Briefcase className="w-3.5 h-3.5" />
-                        <span className="text-sm">{provider.completedJobs || 0}+ jobs completed</span>
-                      </div>
-                    </div>
-
-                    {/* Services Offered */}
-                    {provider.services && provider.services.length > 0 && (
-                      <div className="mt-3 flex flex-wrap gap-1">
-                        {provider.services.slice(0, 2).map((service, idx) => (
-                          <span key={idx} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
-                            {service}
-                          </span>
-                        ))}
-                        {provider.services.length > 2 && (
-                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
-                            +{provider.services.length - 2} more
-                          </span>
-                        )}
+                  {/* Image Section */}
+                  <div className="relative h-48 bg-gray-100">
+                    {provider.photoURL ? (
+                      <img 
+                        src={provider.photoURL} 
+                        alt={provider.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-green-100 to-green-200">
+                        <span className="text-5xl font-bold text-green-600">
+                          {provider.name?.charAt(0).toUpperCase()}
+                        </span>
                       </div>
                     )}
+                    {/* Level Badge */}
+                    <div className="absolute top-3 left-3">
+                      <span className="text-xs font-semibold bg-white px-2 py-1 rounded-full shadow-sm">
+                        {provider.topRated ? "⭐ Top Rated" : provider.verified ? "✓ Verified" : "Level 1"}
+                      </span>
+                    </div>
+                    {/* Save Button */}
+                    <button className="absolute top-3 right-3 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm hover:bg-gray-100 transition">
+                      <Heart className="w-4 h-4 text-gray-500" />
+                    </button>
+                  </div>
 
-                    {/* Badges */}
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {provider.verified && (
-                        <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
-                          <Shield className="w-3 h-3" /> Verified
-                        </span>
-                      )}
-                      {provider.topRated && (
-                        <span className="inline-flex items-center gap-1 text-xs bg-yellow-50 text-yellow-600 px-2 py-0.5 rounded-full">
-                          <Award className="w-3 h-3" /> Top Rated
-                        </span>
-                      )}
-                      {(provider.rating || 0) >= 4.8 && (
-                        <span className="inline-flex items-center gap-1 text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-full">
-                          <ThumbsUp className="w-3 h-3" /> Highly Rated
-                        </span>
-                      )}
+                  {/* Content */}
+                  <div className="p-4">
+                    {/* Seller Info */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                        {provider.name?.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900 text-sm">{provider.name}</p>
+                        <div className="flex items-center gap-1">
+                          <Star className="w-3 h-3 text-yellow-400 fill-current" />
+                          <span className="text-xs font-medium">{provider.rating || 4.5}</span>
+                          <span className="text-xs text-gray-400">({provider.totalBookings || 0})</span>
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="mt-4 flex gap-2">
-                      <button className="flex-1 bg-green-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition transform hover:scale-[1.02]">
-                        Book Now
-                      </button>
-                      <button className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition flex items-center justify-center gap-1">
-                        <MessageCircle className="w-4 h-4" /> Chat
+                    {/* Service Title */}
+                    <p className="text-sm text-gray-600 line-clamp-2 mb-2">
+                      I will provide professional {provider.category?.toLowerCase()} services
+                    </p>
+
+                    {/* Location */}
+                    <div className="flex items-center gap-1 text-gray-500 text-xs mb-3">
+                      <MapPin className="w-3 h-3" />
+                      <span>{provider.city || "Dhaka"}</span>
+                    </div>
+
+                    {/* Price */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-gray-400">STARTING AT</p>
+                        <p className="text-lg font-bold text-green-600">৳{provider.hourlyRate || 500}</p>
+                      </div>
+                      <button
+                        onClick={() => handleChat(provider)}
+                        className="px-3 py-1.5 bg-green-600 text-white rounded-md text-xs font-medium hover:bg-green-700 transition flex items-center gap-1"
+                      >
+                        <MessageCircle className="w-3 h-3" /> Chat
                       </button>
                     </div>
                   </div>
@@ -499,45 +488,63 @@ export default function ServiceCategoryPage() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="mt-8 flex justify-center gap-2">
+              <div className="mt-10 flex justify-center gap-1">
                 <button
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                {[...Array(totalPages)].map((_, i) => {
-                  const page = i + 1;
-                  // Show limited pages
-                  if (
-                    page === 1 ||
-                    page === totalPages ||
-                    (page >= currentPage - 1 && page <= currentPage + 1)
-                  ) {
-                    return (
-                      <button
-                        key={page}
-                        onClick={() => handlePageChange(page)}
-                        className={`px-3 py-2 rounded-lg text-sm transition ${
-                          currentPage === page
-                            ? "bg-green-600 text-white"
-                            : "bg-white border border-gray-300 hover:bg-gray-50"
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    );
-                  }
-                  if (page === currentPage - 2 || page === currentPage + 2) {
-                    return <span key={page} className="px-2 py-2">...</span>;
-                  }
-                  return null;
-                })}
+                
+                {currentPage > 2 && (
+                  <button
+                    onClick={() => handlePageChange(1)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition"
+                  >
+                    1
+                  </button>
+                )}
+                
+                {currentPage > 3 && <span className="px-2 py-2 text-gray-400">...</span>}
+                
+                {currentPage > 1 && (
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition"
+                  >
+                    {currentPage - 1}
+                  </button>
+                )}
+                
+                <button className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm">
+                  {currentPage}
+                </button>
+                
+                {currentPage < totalPages && (
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition"
+                  >
+                    {currentPage + 1}
+                  </button>
+                )}
+                
+                {currentPage < totalPages - 2 && <span className="px-2 py-2 text-gray-400">...</span>}
+                
+                {currentPage < totalPages - 1 && (
+                  <button
+                    onClick={() => handlePageChange(totalPages)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition"
+                  >
+                    {totalPages}
+                  </button>
+                )}
+                
                 <button
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>

@@ -11,6 +11,7 @@ export function AuthProvider({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
+    // Check localStorage for cached user first
     const cachedUser = localStorage.getItem("kaazbazar_user");
     if (cachedUser) {
       const user = JSON.parse(cachedUser);
@@ -30,7 +31,7 @@ export function AuthProvider({ children }) {
             uid: user.uid,
             name: user.displayName || user.email.split('@')[0],
             email: user.email,
-            photoURL: user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || user.email.split('@')[0])}&background=10b981&color=fff&size=200&rounded=true`,
+            photoURL: user.photoURL,
             provider: "email",
             role: "user",
             totalJobs: 0,
@@ -46,7 +47,6 @@ export function AuthProvider({ children }) {
         setCurrentUser(null);
         setIsAuthenticated(false);
         localStorage.removeItem("kaazbazar_user");
-        sessionStorage.clear();
       }
       setLoading(false);
     });
@@ -54,19 +54,17 @@ export function AuthProvider({ children }) {
     return () => unsubscribe();
   }, []);
 
-  // Dynamic logout without page reload
   const logout = async () => {
     try {
       await signOut(auth);
-      // Clear all state immediately
       setCurrentUser(null);
       setIsAuthenticated(false);
       localStorage.removeItem("kaazbazar_user");
       sessionStorage.clear();
-      return true;
+      // Force a small delay
+      await new Promise(resolve => setTimeout(resolve, 100));
     } catch (error) {
       console.error("Logout error:", error);
-      return false;
     }
   };
 
@@ -76,7 +74,7 @@ export function AuthProvider({ children }) {
       setCurrentUser,
       loading, 
       logout, 
-      isAuthenticated
+      isAuthenticated 
     }}>
       {children}
     </AuthContext.Provider>

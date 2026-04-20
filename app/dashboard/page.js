@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { 
   LayoutDashboard, 
@@ -46,9 +46,18 @@ const menuItems = [
 export default function DashboardPage() {
   const { currentUser, loading, isAuthenticated, logout } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Handle tab from URL query parameter
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "messages") {
+      setActiveTab("messages");
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {

@@ -18,18 +18,12 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { 
-  db,
-  collection,
-  query,
-  where,
-  getDocs,
-  addDoc,
-  orderBy,
-  onSnapshot,
-  updateDoc,
-  doc,
-  serverTimestamp
-} from "@/lib/firebase";
+  getUserConversations, 
+  listenToMessages, 
+  sendMessage, 
+  markMessagesAsRead,
+  updateUserStatus
+} from "@/lib/chatService";
 
 export default function MessagesComponent() {
   const { currentUser } = useAuth();
@@ -41,173 +35,101 @@ export default function MessagesComponent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef(null);
-  const [onlineUsers, setOnlineUsers] = useState({});
+  const [onlineStatus, setOnlineStatus] = useState({});
 
-  // Sample conversations data (in production, fetch from Firebase)
+  // Load conversations
   useEffect(() => {
-    // Simulate loading conversations
-    const loadConversations = async () => {
-      setLoading(true);
-      // In production, fetch from Firestore
-      const sampleConversations = [
-        {
-          id: "1",
-          name: "John Electrician",
-          avatar: null,
-          lastMessage: "I'll be there at 3 PM",
-          time: "10:30 AM",
-          unread: 2,
-          online: true,
-          lastSeen: "Online",
-          phone: "+880123456789",
-          email: "john@example.com"
-        },
-        {
-          id: "2",
-          name: "Mike Plumber",
-          avatar: null,
-          lastMessage: "Thanks for your booking!",
-          time: "Yesterday",
-          unread: 0,
-          online: false,
-          lastSeen: "Last seen 2 hours ago",
-          phone: "+880987654321",
-          email: "mike@example.com"
-        },
-        {
-          id: "3",
-          name: "David Carpenter",
-          avatar: null,
-          lastMessage: "Please confirm your address",
-          time: "Yesterday",
-          unread: 1,
-          online: false,
-          lastSeen: "Last seen yesterday",
-          phone: "+880555555555",
-          email: "david@example.com"
-        },
-        {
-          id: "4",
-          name: "Sarah Gardener",
-          avatar: null,
-          lastMessage: "Your garden work is completed",
-          time: "Dec 15, 2024",
-          unread: 0,
-          online: true,
-          lastSeen: "Online",
-          phone: "+880444444444",
-          email: "sarah@example.com"
-        }
-      ];
-      setConversations(sampleConversations);
-      setLoading(false);
-    };
-
-    loadConversations();
+    if (currentUser) {
+      loadConversations();
+      // Update user online status
+      updateUserStatus(currentUser.uid, true);
+      
+      return () => {
+        updateUserStatus(currentUser.uid, false);
+      };
+    }
   }, [currentUser]);
+
+  const loadConversations = async () => {
+    setLoading(true);
+    const result = await getUserConversations(currentUser.uid);
+    if (result.success) {
+      // Format conversations for display
+      const formattedConvos = result.data.map(conv => {
+        const otherParticipantId = conv.participants.find(p => p !== currentUser.uid);
+        const otherUserData = conv.participantsData?.[otherParticipantId] || {};
+        
+        return {
+          id: conv.id,
+          name: otherUserData.name || "User",
+          avatar: otherUserData.photoURL,
+          lastMessage: conv.lastMessage || "No messages yet",
+          time: conv.lastMessageTime ? new Date(conv.lastMessageTime.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "New",
+          unread: conv.unreadCount?.[currentUser.uid] || 0,
+          online: otherUserData.isOnline || false,
+          lastSeen: otherUserData.lastSeen,
+          userId: otherParticipantId
+        };
+      });
+      setConversations(formattedConvos);
+    }
+    setLoading(false);
+  };
 
   // Load messages when chat is selected
   useEffect(() => {
     if (selectedChat) {
-      // Simulate loading messages
-      const sampleMessages = [
-        {
-          id: "1",
-          text: "Hello, I need electrical service",
-          sender: "user",
-          time: "10:00 AM",
-          status: "read"
-        },
-        {
-          id: "2",
-          text: "Sure! What seems to be the problem?",
-          sender: "other",
-          time: "10:05 AM",
-          status: "read"
-        },
-        {
-          id: "3",
-          text: "My lights are flickering and sometimes go off",
-          sender: "user",
-          time: "10:06 AM",
-          status: "read"
-        },
-        {
-          id: "4",
-          text: "I can come check it out. What's your address?",
-          sender: "other",
-          time: "10:10 AM",
-          status: "read"
-        },
-        {
-          id: "5",
-          text: "123 Green Road, Dhaka",
-          sender: "user",
-          time: "10:12 AM",
-          status: "delivered"
-        },
-        {
-          id: "6",
-          text: "I'll be there at 3 PM today",
-          sender: "other",
-          time: "10:30 AM",
-          status: "delivered"
-        }
-      ];
-      setMessages(sampleMessages);
+      // Mark messages as read
+      markMessagesAsRead(selectedChat.id, currentUser.uid);
       
-      // Mark as read
-      if (selectedChat.unread > 0) {
-        setConversations(prev => 
-          prev.map(conv => 
-            conv.id === selectedChat.id ? { ...conv, unread: 0 } : conv
-          )
-        );
-      }
+      // Listen to real-time messages
+      const unsubscribe = listenToMessages(selectedChat.id, (newMessages) => {
+        setMessages(newMessages);
+        // Mark as read when new messages arrive
+        markMessagesAsRead(selectedChat.id, currentUser.uid);
+      });
+      
+      return () => unsubscribe();
     }
-  }, [selectedChat]);
+  }, [selectedChat, currentUser]);
 
   // Auto scroll to bottom when new message arrives
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // ✅ NEW: Handle active conversation from localStorage (when coming from service page)
+  useEffect(() => {
+    // Check if there's an active conversation from localStorage
+    const activeConversationId = localStorage.getItem("activeConversationId");
+    if (activeConversationId && conversations.length > 0) {
+      const activeConv = conversations.find(c => c.id === activeConversationId);
+      if (activeConv) {
+        setSelectedChat(activeConv);
+        // Clear the stored conversation ID
+        localStorage.removeItem("activeConversationId");
+      }
+    }
+  }, [conversations]);
+
   const handleSendMessage = async () => {
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() || sending) return;
     
     setSending(true);
-    const message = {
-      id: Date.now().toString(),
+    const messageData = {
       text: newMessage,
-      sender: "user",
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      status: "sent"
+      senderId: currentUser.uid,
+      senderName: currentUser.name,
+      senderPhoto: currentUser.photoURL,
+      receiverId: selectedChat.userId,
+      timestamp: new Date(),
+      read: false
     };
     
-    setMessages(prev => [...prev, message]);
-    setNewMessage("");
-    
-    // Simulate reply after 1 second (in production, this would be from Firebase)
-    setTimeout(() => {
-      const reply = {
-        id: (Date.now() + 1).toString(),
-        text: "Thanks for your message! I'll get back to you shortly.",
-        sender: "other",
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        status: "read"
-      };
-      setMessages(prev => [...prev, reply]);
-      
-      // Update last message in conversation list
-      setConversations(prev =>
-        prev.map(conv =>
-          conv.id === selectedChat?.id
-            ? { ...conv, lastMessage: newMessage, time: "Just now" }
-            : conv
-        )
-      );
-    }, 1000);
-    
+    const result = await sendMessage(selectedChat.id, messageData);
+    if (result.success) {
+      setNewMessage("");
+    }
     setSending(false);
   };
 
@@ -222,13 +144,16 @@ export default function MessagesComponent() {
     conv.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const getStatusIcon = (status) => {
-    switch(status) {
-      case "read": return <CheckCheck className="w-3 h-3 text-blue-500" />;
-      case "delivered": return <CheckCheck className="w-3 h-3 text-gray-400" />;
-      case "sent": return <CheckCheck className="w-3 h-3 text-gray-400" />;
-      default: return <Clock className="w-3 h-3 text-gray-400" />;
-    }
+  const getStatusIcon = (read, delivered) => {
+    if (read) return <CheckCheck className="w-3 h-3 text-blue-500" />;
+    if (delivered) return <CheckCheck className="w-3 h-3 text-gray-400" />;
+    return <Clock className="w-3 h-3 text-gray-400" />;
+  };
+
+  const formatTime = (timestamp) => {
+    if (!timestamp) return "";
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   if (loading) {
@@ -344,7 +269,7 @@ export default function MessagesComponent() {
                 <div>
                   <p className="font-semibold text-gray-800">{selectedChat.name}</p>
                   <p className="text-xs text-green-600">
-                    {selectedChat.online ? 'Online' : selectedChat.lastSeen}
+                    {selectedChat.online ? 'Online' : `Last seen ${selectedChat.lastSeen}`}
                   </p>
                 </div>
               </div>
@@ -364,22 +289,22 @@ export default function MessagesComponent() {
 
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
-              {messages.map((msg, index) => (
+              {messages.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
+                  className={`flex ${msg.senderId === currentUser.uid ? "justify-end" : "justify-start"}`}
                 >
                   <div
                     className={`max-w-[70%] rounded-2xl px-4 py-2 ${
-                      msg.sender === "user"
+                      msg.senderId === currentUser.uid
                         ? "bg-green-600 text-white"
                         : "bg-white text-gray-800 shadow-sm"
                     }`}
                   >
                     <p className="text-sm break-words">{msg.text}</p>
-                    <div className={`flex items-center justify-end gap-1 mt-1 ${msg.sender === "user" ? "text-green-200" : "text-gray-400"}`}>
-                      <span className="text-xs">{msg.time}</span>
-                      {msg.sender === "user" && getStatusIcon(msg.status)}
+                    <div className={`flex items-center justify-end gap-1 mt-1 ${msg.senderId === currentUser.uid ? "text-green-200" : "text-gray-400"}`}>
+                      <span className="text-xs">{formatTime(msg.timestamp)}</span>
+                      {msg.senderId === currentUser.uid && getStatusIcon(msg.read, msg.delivered)}
                     </div>
                   </div>
                 </div>
