@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 "use client";
 import Link from "next/link";  // ← এই লাইন যোগ করুন
 import { useAuth } from "@/context/AuthContext";

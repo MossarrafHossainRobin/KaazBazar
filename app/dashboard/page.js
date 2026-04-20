@@ -1,6 +1,7 @@
-// app/dashboard/page.js
 "use client";
-import dynamic from "next/dynamic";
+export const dynamic = 'force-dynamic';
+
+import dynamicImport from "next/dynamic";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -32,8 +33,8 @@ import SettingsComponent from "@/components/dashboard/SettingsComponent";
 import BecomeSellerComponent from "@/components/dashboard/BecomeSellerComponent";
 import HelpSupportComponent from "@/components/dashboard/HelpSupportComponent";
 
-// ✅ Dynamically import MessagesComponent with SSR disabled
-const MessagesComponent = dynamic(
+// ✅ Dynamically import MessagesComponent with SSR disabled using renamed import
+const MessagesComponent = dynamicImport(
   () => import("@/components/dashboard/MessagesComponent"),
   { ssr: false }
 );
