@@ -1,5 +1,7 @@
-import { AuthProvider } from "@/context/AuthContext";
+// app/layout.js
 import { LanguageProvider } from "@/context/LanguageContext";
+import { AuthProvider } from "@/context/AuthContext";
+import FirebaseProvider from "@/components/FirebaseProvider";
 import "./globals.css";
 
 export const metadata = {
@@ -16,7 +18,9 @@ export default function RootLayout({ children }) {
       <body className="antialiased">
         <LanguageProvider>
           <AuthProvider>
-            {children}
+            <FirebaseProvider>
+              {children}
+            </FirebaseProvider>
           </AuthProvider>
         </LanguageProvider>
       </body>

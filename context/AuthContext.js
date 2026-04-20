@@ -1,4 +1,5 @@
 "use client";
+
 import { createContext, useContext, useState, useEffect } from "react";
 import { auth, onAuthStateChanged, signOut } from "@/lib/firebase";
 import { getUserProfile } from "@/lib/firestoreService";
