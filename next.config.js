@@ -1,13 +1,22 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
-    // বিল্ডের সময় ESLint error বা warning উপেক্ষা করবে
     ignoreDuringBuilds: true,
   },
   typescript: {
-    // TypeScript error থাকলেও বিল্ড চলবে (আপনি TS ব্যবহার করছেন না)
     ignoreBuildErrors: true,
   },
-}
+  output: 'standalone',
+  images: {
+    domains: ['firebasestorage.googleapis.com', 'lh3.googleusercontent.com'],
+  },
+  // Prevent Firebase from being bundled during build
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals = [...config.externals, 'firebase', 'firebase/app', 'firebase/auth', 'firebase/firestore'];
+    }
+    return config;
+  },
+};
 
-module.exports = nextConfig
+module.exports = nextConfig;

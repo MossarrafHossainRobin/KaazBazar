@@ -1,3 +1,4 @@
+// context/AuthContext.js
 "use client";
 
 import { createContext, useContext, useState, useEffect } from "react";
@@ -9,15 +10,18 @@ const AuthContext = createContext();
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // Check localStorage for cached user first
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+
     const cachedUser = localStorage.getItem("kaazbazar_user");
     if (cachedUser) {
-      const user = JSON.parse(cachedUser);
-      setCurrentUser(user);
-      setIsAuthenticated(true);
+      setCurrentUser(JSON.parse(cachedUser));
     }
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -42,28 +46,22 @@ export function AuthProvider({ children }) {
         }
         
         setCurrentUser(userData);
-        setIsAuthenticated(true);
         localStorage.setItem("kaazbazar_user", JSON.stringify(userData));
       } else {
         setCurrentUser(null);
-        setIsAuthenticated(false);
         localStorage.removeItem("kaazbazar_user");
       }
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [mounted]);
 
   const logout = async () => {
     try {
       await signOut(auth);
       setCurrentUser(null);
-      setIsAuthenticated(false);
       localStorage.removeItem("kaazbazar_user");
-      sessionStorage.clear();
-      // Force a small delay
-      await new Promise(resolve => setTimeout(resolve, 100));
     } catch (error) {
       console.error("Logout error:", error);
     }
@@ -75,7 +73,7 @@ export function AuthProvider({ children }) {
       setCurrentUser,
       loading, 
       logout, 
-      isAuthenticated 
+      isAuthenticated: !!currentUser 
     }}>
       {children}
     </AuthContext.Provider>
