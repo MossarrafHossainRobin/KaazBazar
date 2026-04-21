@@ -364,9 +364,7 @@ export default function SearchBar({ searchQuery, setSearchQuery, onSearch, isScr
   }, []);
 
   // Dynamic sizing based on scroll
-  const searchBarHeight = isScrolled ? "py-2.5" : "py-3.5";
-  const searchIconSize = isScrolled ? "w-5 h-5" : "w-5 h-5";
-  const inputPadding = isScrolled ? "pl-11 pr-24 py-2.5" : "pl-11 pr-24 py-3.5";
+  const inputPadding = isScrolled ? "pl-5 pr-24 py-2.5" : "pl-5 pr-24 py-3.5";
 
   return (
     <div className="relative w-full">
@@ -393,25 +391,25 @@ export default function SearchBar({ searchQuery, setSearchQuery, onSearch, isScr
           onKeyPress={handleKeyPress}
         />
         
-        {/* Search Icon Button - Fixed positioning */}
-        <button
-          onClick={handleSearch}
-          className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-700 transition-colors"
-          type="button"
-        >
-          <Search className="w-5 h-5" />
-        </button>
-        
-        {/* Clear Button */}
+        {/* Clear Button - Right side before search icon */}
         {searchQuery && (
           <button
             onClick={handleClear}
-            className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
+            className="absolute right-12 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
             type="button"
           >
             <XCircle className="w-5 h-5" />
           </button>
         )}
+        
+        {/* Search Icon Button - Far Right Side Black Box */}
+        <button
+          onClick={handleSearch}
+          className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black hover:bg-gray-800 text-white rounded-full p-2 transition-all duration-300 hover:scale-105"
+          type="button"
+        >
+          <Search className="w-4 h-4" />
+        </button>
 
         {/* Suggestions Dropdown */}
         {showSuggestions && (
