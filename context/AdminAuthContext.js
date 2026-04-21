@@ -50,11 +50,40 @@ export function AdminAuthProvider({ children }) {
     return () => unsubscribe();
   }, []);
 
+  // Function to manually refresh admin status
+  const refreshAdminStatus = async () => {
+    if (auth.currentUser) {
+      try {
+        const userRef = doc(db, "users", auth.currentUser.uid);
+        const userSnap = await getDoc(userRef);
+        const userData = userSnap.data();
+        
+        if (userData?.role === "admin") {
+          setAdminUser({
+            uid: auth.currentUser.uid,
+            name: auth.currentUser.displayName || userData.name || auth.currentUser.email.split('@')[0],
+            email: auth.currentUser.email,
+            photoURL: auth.currentUser.photoURL || userData.photoURL,
+            role: "admin",
+            ...userData
+          });
+          setIsAdmin(true);
+        } else {
+          setAdminUser(null);
+          setIsAdmin(false);
+        }
+      } catch (error) {
+        console.error("Error refreshing admin status:", error);
+      }
+    }
+  };
+
   const value = {
     adminUser,
     loading,
     isAdmin,
-    isAuthenticated: !!adminUser
+    isAuthenticated: !!adminUser,
+    refreshAdminStatus
   };
 
   return (

@@ -1,6 +1,8 @@
 // app/layout.js
-import ClientProviders from "@/components/ClientProviders";
+import { LanguageProvider } from "@/context/LanguageContext";
+import { AuthProvider } from "@/context/AuthContext";
 import { AdminAuthProvider } from "@/context/AdminAuthContext";
+import ClientProviders from "@/components/ClientProviders";
 import "./globals.css";
 
 export const metadata = {
@@ -15,11 +17,15 @@ export default function RootLayout({ children }) {
         <meta name="format-detection" content="telephone=no, date=no, email=no, address=no" />
       </head>
       <body className="antialiased">
-        <ClientProviders>
-          <AdminAuthProvider>
-            {children}
-          </AdminAuthProvider>
-        </ClientProviders>
+        <LanguageProvider>
+          <AuthProvider>
+            <AdminAuthProvider>
+              <ClientProviders>
+                {children}
+              </ClientProviders>
+            </AdminAuthProvider>
+          </AuthProvider>
+        </LanguageProvider>
       </body>
     </html>
   );

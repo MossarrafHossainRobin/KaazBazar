@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { 
   Search, 
   User, 
@@ -26,10 +27,12 @@ import {
   LayoutDashboard,
   Package,
   CheckCircle,
-  XCircle as XCircleIcon
+  XCircle as XCircleIcon,
+  Gift
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
+import { useAdminAuth } from "@/context/AdminAuthContext";
 import { updateUserProfile, getUserProfile } from "@/lib/firestoreService";
 import NotificationBell from "@/components/NotificationBell";
 
@@ -48,6 +51,7 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
   const router = useRouter();
   const { language, toggleLanguage, t } = useLanguage();
   const { currentUser, logout, isAuthenticated, setCurrentUser } = useAuth();
+  const { isAdmin, refreshAdminStatus } = useAdminAuth();
 
   // Service Categories Data
   const serviceCategories = [
@@ -106,6 +110,8 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
   useEffect(() => {
     if (currentUser) {
       fetchUserStatus();
+      // Refresh admin status when user changes
+      refreshAdminStatus();
     }
   }, [currentUser]);
 
@@ -193,6 +199,18 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
     setUpdatingStatus(false);
   };
 
+  // Handle refer friend
+  const handleReferFriend = () => {
+    const shareUrl = `${window.location.origin}/?ref=${currentUser?.uid}`;
+    navigator.clipboard.writeText(shareUrl);
+    alert("Referral link copied to clipboard! Share with your friends.");
+  };
+
+  // Debug log
+  useEffect(() => {
+    console.log("isAdmin from AdminAuthContext:", isAdmin);
+  }, [isAdmin]);
+
   // Translations
   const translations = {
     english: {
@@ -210,6 +228,7 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
       topRated: "Top Rated",
       nearYou: "Near You",
       dashboard: "Dashboard",
+      adminDashboard: "Admin Dashboard",
       savedItems: "Saved Items",
       recentActivity: "Recent Activity",
       accountSettings: "Account Settings",
@@ -217,7 +236,8 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
       becomeSeller: "Become a Seller",
       active: "Active",
       inactive: "Inactive",
-      loggingOut: "Logging out..."
+      loggingOut: "Logging out...",
+      referFriend: "Refer a Friend"
     },
     bengali: {
       explore: "এক্সপ্লোর",
@@ -234,6 +254,7 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
       topRated: "টপ রেটেড",
       nearYou: "আপনার কাছাকাছি",
       dashboard: "ড্যাশবোর্ড",
+      adminDashboard: "অ্যাডমিন ড্যাশবোর্ড",
       savedItems: "সেভ করা আইটেম",
       recentActivity: "রিসেন্ট অ্যাক্টিভিটি",
       accountSettings: "অ্যাকাউন্ট সেটিংস",
@@ -241,7 +262,8 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
       becomeSeller: "সেলার হোন",
       active: "সক্রিয়",
       inactive: "নিষ্ক্রিয়",
-      loggingOut: "লগআউট হচ্ছে..."
+      loggingOut: "লগআউট হচ্ছে...",
+      referFriend: "বন্ধুকে রেফার করুন"
     }
   };
 
@@ -251,9 +273,17 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
     <nav className={`bg-white sticky top-0 z-50 transition-all duration-300 ${isScrolled ? 'shadow-md border-b-0' : 'border-b border-gray-100'}`}>
       <div className="container mx-auto px-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between py-3 md:py-0">
-          {/* Logo */}
+          {/* Logo with Larger Favicon */}
           <div className="flex items-center justify-between">
-            <Link href="/" className="relative group">
+            <Link href="/" className="relative group flex items-center gap-3">
+              <Image 
+                src="/favicon.ico" 
+                alt="Kaazbazar Logo" 
+                width={40} 
+                height={40} 
+                className="w-10 h-10 md:w-12 md:h-12"
+                priority
+              />
               <span className="text-2xl md:text-3xl font-bold text-black group-hover:text-gray-700 transition-colors duration-300">
                 Kaazbazar
               </span>
@@ -439,6 +469,7 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
 
                   {showUserMenu && (
                     <div className="absolute right-0 mt-3 w-64 bg-white rounded-xl shadow-2xl py-2 border border-gray-100 z-30 animate-fadeInUp">
+                      {/* User Info Header */}
                       <div className="px-4 py-3 border-b border-gray-100">
                         <div className="flex items-center gap-3">
                           <div className="relative">
@@ -470,6 +501,7 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
                         </div>
                       </div>
 
+                      {/* Active Status Toggle */}
                       <div className="px-4 py-3 border-b border-gray-100">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
@@ -503,6 +535,7 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
                         </p>
                       </div>
 
+                      {/* Dashboard Link */}
                       <div className="py-2">
                         <Link
                           href="/dashboard"
@@ -514,8 +547,34 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
                         </Link>
                       </div>
 
+                      {/* Admin Dashboard Link - Only visible when isAdmin is true */}
+                      {isAdmin && (
+                        <div className="py-2">
+                          <Link
+                            href="/admin"
+                            className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
+                            onClick={() => setShowUserMenu(false)}
+                          >
+                            <Shield className="w-4 h-4" />
+                            <span className="text-sm">{lang.adminDashboard}</span>
+                          </Link>
+                        </div>
+                      )}
+
+                      {/* Refer a Friend Link */}
+                      <div className="py-2">
+                        <button
+                          onClick={handleReferFriend}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
+                        >
+                          <Gift className="w-4 h-4" />
+                          <span className="text-sm">{lang.referFriend}</span>
+                        </button>
+                      </div>
+
                       <hr className="my-1" />
                       
+                      {/* Logout Button */}
                       <button
                         onClick={handleLogoutClick}
                         disabled={isLoggingOut}
@@ -653,6 +712,21 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
                 <Link href="/dashboard" className="flex items-center gap-3 py-3 text-black hover:text-gray-600 hover:bg-gray-50 px-3 rounded-lg transition-all duration-300">
                   <LayoutDashboard className="w-5 h-5" /> {lang.dashboard}
                 </Link>
+                
+                {/* Admin Dashboard in Mobile - Only when isAdmin is true */}
+                {isAdmin && (
+                  <Link href="/admin" className="flex items-center gap-3 py-3 text-black hover:text-gray-600 hover:bg-gray-50 px-3 rounded-lg transition-all duration-300">
+                    <Shield className="w-5 h-5" /> {lang.adminDashboard}
+                  </Link>
+                )}
+                
+                {/* Refer a Friend in Mobile */}
+                <button
+                  onClick={handleReferFriend}
+                  className="flex items-center gap-3 w-full text-left py-3 text-black hover:text-gray-600 hover:bg-gray-50 px-3 rounded-lg transition-all duration-300"
+                >
+                  <Gift className="w-5 h-5" /> {lang.referFriend}
+                </button>
                 
                 <button onClick={handleLogoutClick} disabled={isLoggingOut} className="flex items-center gap-3 w-full text-left py-3 text-red-600 hover:bg-red-50 px-3 rounded-lg transition-all duration-300 disabled:opacity-50">
                   {isLoggingOut ? (
