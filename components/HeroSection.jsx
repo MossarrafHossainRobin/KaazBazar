@@ -1,136 +1,114 @@
 "use client";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { ChevronRight, Shield, Headphones, BadgeCheck, DollarSign } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
+import SearchBar from "@/components/SearchBar";
 
 export default function HeroSection({ searchQuery, setSearchQuery }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
-  // Service Categories Array - এখানে সঠিক জায়গায় ডিফাইন করা হয়েছে
-  const serviceCategories = [
-    { name: "Electrician", icon: "⚡", href: "/services/electrician" },
-    { name: "Plumber", icon: "🔧", href: "/services/plumber" },
-    { name: "Carpenter", icon: "🪚", href: "/services/carpenter" },
-    { name: "Gardener", icon: "🌱", href: "/services/gardener" },
-    { name: "Others", icon: "📦", href: "/services/others" }
+  // Service Categories - Updated with Glass Cleaner and Water Tank Cleaning
+  const topServices = [
+    { nameEn: "Electrician", nameBn: "ইলেকট্রিশিয়ান", href: "/services/electrician" },
+    { nameEn: "Plumber", nameBn: "প্লাম্বার", href: "/services/plumber" },
+    { nameEn: "AC Service", nameBn: "এসি সার্ভিসিং", href: "/services/ac-repair" },
+    { nameEn: "Carpenter", nameBn: "কাঠমিস্ত্রি", href: "/services/carpenter" },
+    { nameEn: "Painter", nameBn: "রংমিস্ত্রি", href: "/services/painter" },
+    { nameEn: "Deep Cleaning", nameBn: "ডিপ ক্লিনিং", href: "/services/deep-cleaning" },
+    { nameEn: "Glass Cleaner", nameBn: "গ্লাস ক্লিনার", href: "/services/glass-cleaning" },
+    { nameEn: "Water Tank Cleaning", nameBn: "ওয়াটার ট্যাংক ক্লিনিং", href: "/services/water-tank-cleaning" },
+    { nameEn: "Home Shifting", nameBn: "বাসা বদল", href: "/services/home-shifting" },
+    { nameEn: "CCTV Setup", nameBn: "সিসিটিভি সেটআপ", href: "/services/cctv" },
+    { nameEn: "Internet Setup", nameBn: "ইন্টারনেট সেটআপ", href: "/services/internet" },
+    { nameEn: "Home Tutor", nameBn: "প্রাইভেট টিউটর", href: "/services/tutor" },
+    { nameEn: "Driver", nameBn: "ড্রাইভার", href: "/services/driver" },
+    { nameEn: "Tailor", nameBn: "দর্জি", href: "/services/tailor" },
+    { nameEn: "Salon at Home", nameBn: "বিউটি সার্ভিস", href: "/services/beauty" },
+    { nameEn: "Generator Service", nameBn: "জেনারেটর সার্ভিস", href: "/services/generator" },
+    { nameEn: "Fridge Repair", nameBn: "ফ্রিজ মেরামত", href: "/services/appliance-repair" },
+    { nameEn: "Sofa Cleaning", nameBn: "সোফা ক্লিনিং", href: "/services/sofa-cleaning" },
+    { nameEn: "Packers & Movers", nameBn: "প্যাকিং ও মুভিং", href: "/services/packers-movers" },
+    { nameEn: "Event Decoration", nameBn: "ইভেন্ট ডেকোরেশন", href: "/services/decoration" }
   ];
 
-  const popularSearches = [
-    "ইলেকট্রিক তারের কাজ",
-    "পাইপ লিকেজ রিপেয়ার",
-    "ফার্নিচার মেরামত",
-    "বাগান করা",
-    "ঘর পেইন্টিং",
-    "এসি সার্ভিসিং"
+  // Trust badges data
+  const trustBadges = [
+    { nameEn: "Secure Payments", nameBn: "সুরক্ষিত পেমেন্ট", icon: Shield },
+    { nameEn: "24/7 Support", nameBn: "২৪/৭ সাপোর্ট", icon: Headphones },
+    { nameEn: "Verified Professionals", nameBn: "ভেরিফাইড প্রফেশনাল", icon: BadgeCheck },
+    { nameEn: "Money Back Guarantee", nameBn: "মানি ব্যাক গ্যারান্টি", icon: DollarSign }
   ];
 
   return (
     <>
       {/* Hero Section */}
-      <section className="bg-white border-b border-gray-200 py-16 md:py-20">
+      <section className="bg-white border-b border-gray-200 py-12 md:py-16">
         <div className="container mx-auto px-4">
-          <div className="max-w-3xl mx-auto text-center">
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-black mb-4">
-              {t.heroTitle}
-            </h1>
+          <div className="max-w-4xl mx-auto">
             
-            <p className="text-base md:text-lg text-gray-600 mb-8">
-              {t.heroSubtitle}
-            </p>
-            
-            {/* Search Bar */}
-            <div className="bg-white border-2 border-gray-300 rounded-lg p-1 flex flex-col md:flex-row gap-2 mb-8 hover:border-gray-500 transition-colors">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="text"
-                  placeholder={t.searchPlaceholder}
-                  className="w-full pl-10 pr-4 py-3 rounded-lg text-black placeholder-gray-400 focus:outline-none text-base"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
+            {/* Slogan - Centered */}
+            <div className="text-center">
+              <div className="inline-flex items-center gap-2 bg-gray-50 rounded-full px-4 py-1.5 mb-6 border border-gray-200">
+                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                <span className="text-xs md:text-sm font-medium text-gray-700 tracking-wide">
+                  Trusted • Skilled • Connected
+                </span>
               </div>
-              <button 
-                onClick={() => setSearchQuery(searchQuery)}
-                className="bg-black text-white px-6 py-3 rounded-lg hover:bg-gray-800 transition-colors font-medium"
-              >
-                {t.searchButton}
-              </button>
+
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-black mb-4">
+                {t.heroTitle}
+              </h1>
+              
+              <p className="text-base md:text-lg text-gray-600 mb-8">
+                {t.heroSubtitle}
+              </p>
             </div>
             
-            {/* Category Chain */}
-            <div className="mb-6">
-              <p className="text-sm text-gray-500 mb-3">{t.serviceTypes}</p>
-              <div className="flex flex-wrap justify-center gap-2">
-                {serviceCategories.map((category, idx) => (
+            {/* Search Bar - Centered */}
+            <div className="max-w-2xl mx-auto mb-10">
+              <SearchBar 
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                language={language}
+                isScrolled={false}
+              />
+            </div>
+            
+            {/* Top Services - Compact cards below search bar */}
+            <div className="mb-12">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+                {topServices.map((service, idx) => (
                   <Link
                     key={idx}
-                    href={category.href}
-                    className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-md text-sm hover:bg-gray-200 transition-colors"
+                    href={service.href}
+                    className="group flex items-center justify-between px-3 py-2 bg-white border border-gray-200 rounded-md text-sm text-gray-700 hover:border-green-400 hover:bg-green-50 hover:text-green-700 transition-all duration-200"
                   >
-                    {category.name}
+                    <span className="truncate">
+                      {language === 'bengali' ? service.nameBn : service.nameEn}
+                    </span>
+                    <ChevronRight className="w-3 h-3 text-gray-400 group-hover:text-green-500 group-hover:translate-x-0.5 transition-all duration-200 flex-shrink-0 ml-1" />
                   </Link>
                 ))}
               </div>
             </div>
-            
-            {/* Popular Searches */}
-            <div>
-              <p className="text-sm text-gray-500 mb-2">{t.popularSearches}</p>
-              <div className="flex flex-wrap justify-center gap-2">
-                {popularSearches.map((item, idx) => (
-                  <button
+
+            {/* Trust Section - Rectangle Shapes with Green Border on Hover */}
+            <div className="pt-4 border-t border-gray-100">
+              <div className="flex flex-wrap justify-center items-center gap-4 md:gap-6">
+                {trustBadges.map((badge, idx) => (
+                  <div
                     key={idx}
-                    onClick={() => setSearchQuery(item)}
-                    className="text-sm text-gray-600 hover:text-black hover:underline transition-colors"
+                    className="group flex items-center gap-3 px-5 py-2.5 bg-white border border-gray-200 rounded-lg shadow-sm hover:border-green-400 hover:bg-green-50/30 hover:shadow-md transition-all duration-300 cursor-default"
                   >
-                    {item}
-                    {idx < popularSearches.length - 1 && (
-                      <span className="mx-1 text-gray-300">•</span>
-                    )}
-                  </button>
+                    <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-green-100 transition-colors duration-300">
+                      <badge.icon className="w-4 h-4 text-gray-600 group-hover:text-green-600 transition-colors duration-300" />
+                    </div>
+                    <span className="text-sm font-medium text-gray-700 group-hover:text-green-700 transition-colors duration-300">
+                      {language === 'bengali' ? badge.nameBn : badge.nameEn}
+                    </span>
+                  </div>
                 ))}
               </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Trust Section */}
-      <section className="py-6 bg-gray-50 border-b border-gray-200">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-wrap justify-center items-center gap-6 md:gap-10">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-gray-800 rounded-full flex items-center justify-center">
-                <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <span className="text-gray-700 text-sm">{t.securePayments}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-gray-800 rounded-full flex items-center justify-center">
-                <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <span className="text-gray-700 text-sm">{t.support247}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-gray-800 rounded-full flex items-center justify-center">
-                <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <span className="text-gray-700 text-sm">{t.verifiedPros}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-gray-800 rounded-full flex items-center justify-center">
-                <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <span className="text-gray-700 text-sm">{t.moneyBack}</span>
             </div>
           </div>
         </div>
