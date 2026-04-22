@@ -110,10 +110,13 @@ export default function MessageBox() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleOpenMessage = (conversationId) => {
+  // Directly open specific conversation in dashboard messages tab
+  const handleOpenConversation = (conversationId) => {
     setIsOpen(false);
-    // Navigate to dashboard messages tab with conversation ID
-    router.push(`/dashboard?tab=messages&conversation=${conversationId}`);
+    // Store the conversation ID in localStorage to auto-select it in the messages component
+    localStorage.setItem("activeConversationId", conversationId);
+    // Navigate to dashboard messages tab
+    router.push("/dashboard?tab=messages");
   };
 
   // Mark all messages as read
@@ -250,7 +253,7 @@ export default function MessageBox() {
                 return (
                   <button
                     key={conv.id}
-                    onClick={() => handleOpenMessage(conv.id)}
+                    onClick={() => handleOpenConversation(conv.id)}
                     className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0 group"
                   >
                     <div className="flex items-start gap-3">

@@ -56,6 +56,20 @@ export default function MessagesComponent() {
   const unsubscribersRef = useRef([]);
   const isScrollingRef = useRef(false);
 
+  // Auto-select conversation from localStorage (when coming from MessageBox)
+  useEffect(() => {
+    const activeConversationId = localStorage.getItem("activeConversationId");
+    if (activeConversationId && conversations.length > 0) {
+      const activeConv = conversations.find(c => c.id === activeConversationId);
+      if (activeConv) {
+        setSelectedChat(activeConv);
+        setShowMobileMenu(false);
+        // Clear the stored ID after use
+        localStorage.removeItem("activeConversationId");
+      }
+    }
+  }, [conversations]);
+
   // Request notification permission on mount
   useEffect(() => {
     const initNotifications = async () => {
@@ -64,7 +78,6 @@ export default function MessagesComponent() {
     };
     initNotifications();
     
-    // Update user online status
     if (currentUser) {
       updateUserOnlineStatus(true);
       
@@ -96,7 +109,6 @@ export default function MessagesComponent() {
     }
   };
 
-  // Fetch user profile with error handling
   const fetchUserProfile = async (userId) => {
     if (!userId) return null;
     try {
@@ -115,16 +127,6 @@ export default function MessagesComponent() {
       }
     } catch (error) {
       console.error("Error fetching user profile:", error);
-      if (userId === currentUser?.uid && currentUser?.email) {
-        return {
-          name: currentUser.displayName || currentUser.email.split('@')[0],
-          photoURL: currentUser.photoURL || null,
-          email: currentUser.email,
-          isOnline: true,
-          isActive: true,
-          lastSeen: new Date().toISOString(),
-        };
-      }
     }
     return null;
   };
@@ -400,14 +402,12 @@ export default function MessagesComponent() {
       
       await batch.commit();
       
-      // Update total unread count
       setTotalUnreadCount(prev => Math.max(0, prev - snapshot.size));
     } catch (error) {
       console.error("Error marking messages as read:", error);
     }
   };
 
-  // Send message
   const handleSendMessage = async () => {
     if (!newMessage.trim()) return;
     if (!selectedChat || !selectedChat.userId) return;
@@ -529,7 +529,6 @@ export default function MessagesComponent() {
     return null;
   };
 
-  // Get status display text and icon
   const getStatusDisplay = (userId) => {
     const status = onlineStatus[userId];
     if (!status) return { text: "Offline", icon: null, color: "text-gray-400" };
@@ -605,7 +604,6 @@ export default function MessagesComponent() {
                       selectedChat?.id === conv.id ? 'bg-green-50 border-l-4 border-l-green-500' : ''
                     }`}
                   >
-                    {/* Avatar with Profile Picture */}
                     <div className="relative flex-shrink-0">
                       {profileImage ? (
                         <img 
@@ -623,7 +621,6 @@ export default function MessagesComponent() {
                           <span className="text-white font-bold text-lg">{conv.name.charAt(0).toUpperCase()}</span>
                         </div>
                       )}
-                      {/* Status Indicator */}
                       <div className="absolute -bottom-0.5 -right-0.5">
                         {statusDisplay.dotColor ? (
                           <div className={`w-3.5 h-3.5 ${statusDisplay.dotColor} rounded-full ring-2 ring-white ${statusDisplay.dotColor === 'bg-green-500' ? 'animate-pulse' : ''}`} />
@@ -637,7 +634,6 @@ export default function MessagesComponent() {
                       </div>
                     </div>
                     
-                    {/* Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-baseline">
                         <p className="font-semibold text-gray-800 truncate">{conv.name}</p>
@@ -651,7 +647,6 @@ export default function MessagesComponent() {
                       </div>
                     </div>
                     
-                    {/* Unread Badge */}
                     {conv.unread > 0 && (
                       <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 animate-pulse">
                         <span className="text-white text-xs font-medium">{conv.unread}</span>
@@ -705,7 +700,6 @@ export default function MessagesComponent() {
                       </div>
                     );
                   })()}
-                  {/* Status Indicator */}
                   <div className="absolute -bottom-0.5 -right-0.5">
                     {(() => {
                       const status = onlineStatus[selectedChat.userId];
