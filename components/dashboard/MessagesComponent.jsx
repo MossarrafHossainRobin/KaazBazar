@@ -10,7 +10,8 @@ import {
   Phone,
   Video,
   MoreVertical,
-  User
+  User,
+  XCircle
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebaseClient";
@@ -47,6 +48,7 @@ export default function MessagesComponent() {
   const [userProfiles, setUserProfiles] = useState({});
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [lastMessageDoc, setLastMessageDoc] = useState(null);
+  const [totalUnreadCount, setTotalUnreadCount] = useState(0);
   
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -86,7 +88,8 @@ export default function MessagesComponent() {
       const userRef = doc(db, "users", currentUser.uid);
       await updateDoc(userRef, {
         isOnline: isOnline,
-        lastSeen: new Date().toISOString()
+        lastSeen: new Date().toISOString(),
+        isActive: isOnline
       });
     } catch (error) {
       console.error("Error updating online status:", error);
@@ -106,21 +109,20 @@ export default function MessagesComponent() {
           photoURL: userData.photoURL || null,
           email: userData.email || "",
           isOnline: userData.isOnline || false,
+          isActive: userData.isActive || false,
           lastSeen: userData.lastSeen,
-          isActive: userData.isActive || false
         };
       }
     } catch (error) {
       console.error("Error fetching user profile:", error);
-      // Try to get from currentUser email as fallback
       if (userId === currentUser?.uid && currentUser?.email) {
         return {
           name: currentUser.displayName || currentUser.email.split('@')[0],
           photoURL: currentUser.photoURL || null,
           email: currentUser.email,
           isOnline: true,
+          isActive: true,
           lastSeen: new Date().toISOString(),
-          isActive: true
         };
       }
     }
@@ -145,13 +147,15 @@ export default function MessagesComponent() {
           const convos = [];
           const userStatuses = {};
           const profiles = {};
+          let unreadTotal = 0;
           
           for (const docSnap of snapshot.docs) {
             const convData = docSnap.data();
             const otherParticipantId = convData.participants?.find(p => p !== currentUser.uid);
+            const unreadCount = convData.unreadCount?.[currentUser.uid] || 0;
+            unreadTotal += unreadCount;
             
             if (otherParticipantId) {
-              // Fetch user profile
               let userData = profiles[otherParticipantId];
               if (!userData) {
                 userData = await fetchUserProfile(otherParticipantId);
@@ -165,9 +169,9 @@ export default function MessagesComponent() {
                 };
                 
                 userStatuses[otherParticipantId] = {
-                  isOnline: userData.isOnline,
+                  isOnline: userData.isOnline || false,
+                  isActive: userData.isActive || false,
                   lastSeen: userData.lastSeen,
-                  isActive: userData.isActive
                 };
                 
                 convos.push({
@@ -179,13 +183,17 @@ export default function MessagesComponent() {
                   lastMessageTime: convData.lastMessageTime,
                   time: convData.lastMessageTime?.toDate?.() ? 
                     formatTime(convData.lastMessageTime.toDate()) : "New",
-                  unread: convData.unreadCount?.[currentUser.uid] || 0,
-                  userId: otherParticipantId
+                  unread: unreadCount,
+                  userId: otherParticipantId,
+                  isOnline: userData.isOnline || false,
+                  isActive: userData.isActive || false,
+                  lastSeen: userData.lastSeen
                 });
               }
             }
           }
           
+          setTotalUnreadCount(unreadTotal);
           setUserProfiles(profiles);
           setOnlineStatus(userStatuses);
           setConversations(convos);
@@ -260,7 +268,7 @@ export default function MessagesComponent() {
     loadMessages(selectedChat.id, false);
     
     const messagesRef = collection(db, "conversations", selectedChat.id, "messages");
-    const q = query(messagesRef, orderBy("timestamp", "desc"), limit(1));
+    const q = query(messagesRef, orderBy("timestamp", "asc"));
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
       snapshot.docChanges().forEach((change) => {
@@ -309,6 +317,29 @@ export default function MessagesComponent() {
         setOtherUserTyping(docSnap.data().isTyping || false);
       } else {
         setOtherUserTyping(false);
+      }
+    });
+    
+    unsubscribersRef.current.push(unsubscribe);
+    return () => unsubscribe();
+  }, [selectedChat]);
+
+  // Real-time status listener for selected user
+  useEffect(() => {
+    if (!selectedChat || !selectedChat.userId) return;
+    
+    const userRef = doc(db, "users", selectedChat.userId);
+    const unsubscribe = onSnapshot(userRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const userData = docSnap.data();
+        setOnlineStatus(prev => ({
+          ...prev,
+          [selectedChat.userId]: {
+            isOnline: userData.isOnline || false,
+            isActive: userData.isActive || false,
+            lastSeen: userData.lastSeen
+          }
+        }));
       }
     });
     
@@ -368,37 +399,22 @@ export default function MessagesComponent() {
       });
       
       await batch.commit();
+      
+      // Update total unread count
+      setTotalUnreadCount(prev => Math.max(0, prev - snapshot.size));
     } catch (error) {
       console.error("Error marking messages as read:", error);
     }
   };
 
+  // Send message
   const handleSendMessage = async () => {
     if (!newMessage.trim()) return;
     if (!selectedChat || !selectedChat.userId) return;
-    
+
     const messageText = newMessage.trim();
-    const tempId = `temp_${Date.now()}_${Math.random()}`;
-    const tempMessage = {
-      id: tempId,
-      text: messageText,
-      senderId: currentUser.uid,
-      senderName: currentUser.displayName || currentUser.name || "User",
-      senderPhoto: currentUser.photoURL || "",
-      receiverId: selectedChat.userId,
-      timestamp: new Date(),
-      read: false,
-      delivered: true,
-      isTemp: true
-    };
-    
-    setMessages(prev => [...prev, tempMessage]);
     setNewMessage("");
-    
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 50);
-    
+
     try {
       const messagesRef = collection(db, "conversations", selectedChat.id, "messages");
       const messageData = {
@@ -409,34 +425,22 @@ export default function MessagesComponent() {
         receiverId: selectedChat.userId,
         timestamp: new Date(),
         read: false,
-        delivered: true
+        delivered: true,
       };
-      
-      const docRef = await addDoc(messagesRef, messageData);
-      
+      await addDoc(messagesRef, messageData);
+
       const conversationRef = doc(db, "conversations", selectedChat.id);
       await updateDoc(conversationRef, {
         lastMessage: messageText,
         lastMessageTime: new Date(),
-        [`unreadCount.${selectedChat.userId}`]: (conversations.find(c => c.id === selectedChat.id)?.unreadCount || 0) + 1
+        [`unreadCount.${selectedChat.userId}`]: (conversations.find(c => c.id === selectedChat.id)?.unreadCount || 0) + 1,
       });
-      
-      setMessages(prev => prev.map(msg => 
-        msg.id === tempId ? { ...msg, id: docRef.id, isTemp: false } : msg
-      ));
-      
+
       if (notificationsEnabled) {
-        sendMessageNotification(
-          currentUser.uid,
-          selectedChat.name,
-          messageText,
-          selectedChat.id
-        );
+        sendMessageNotification(currentUser.uid, selectedChat.name, messageText, selectedChat.id);
       }
-      
     } catch (error) {
       console.error("Error sending message:", error);
-      setMessages(prev => prev.filter(msg => msg.id !== tempId));
       setNewMessage(messageText);
     }
   };
@@ -515,16 +519,31 @@ export default function MessagesComponent() {
     return { icon: Clock, color: "text-gray-400", title: "Sent" };
   };
 
-  // Helper function to get profile image URL
   const getProfileImageUrl = (profile) => {
     if (profile?.photoURL) {
       return profile.photoURL;
     }
-    // Fallback to Google profile picture based on email
     if (profile?.email) {
       return `https://www.gravatar.com/avatar/${btoa(profile.email)}?d=identicon&s=96`;
     }
     return null;
+  };
+
+  // Get status display text and icon
+  const getStatusDisplay = (userId) => {
+    const status = onlineStatus[userId];
+    if (!status) return { text: "Offline", icon: null, color: "text-gray-400" };
+    
+    if (status.isOnline && status.isActive) {
+      return { text: "Online", icon: null, color: "text-green-600", dotColor: "bg-green-500" };
+    }
+    if (!status.isActive) {
+      return { text: "Inactive", icon: XCircle, color: "text-red-500", dotColor: "bg-red-500" };
+    }
+    if (status.lastSeen) {
+      return { text: `Last seen ${formatLastSeen(status.lastSeen)}`, icon: null, color: "text-gray-400" };
+    }
+    return { text: "Offline", icon: null, color: "text-gray-400" };
   };
 
   if (loading) {
@@ -544,8 +563,8 @@ export default function MessagesComponent() {
           <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-green-50 to-white sticky top-0 z-10">
             <h1 className="text-xl font-bold text-gray-800">Messages</h1>
             <p className="text-sm text-gray-500 mt-1">
-              {conversations.filter(c => c.unread > 0).length > 0 
-                ? `${conversations.filter(c => c.unread > 0).length} unread message${conversations.filter(c => c.unread > 0).length > 1 ? 's' : ''}`
+              {totalUnreadCount > 0 
+                ? `${totalUnreadCount} unread message${totalUnreadCount > 1 ? 's' : ''}`
                 : "All caught up!"}
             </p>
           </div>
@@ -574,8 +593,9 @@ export default function MessagesComponent() {
             ) : (
               filteredConversations.map((conv) => {
                 const profile = userProfiles[conv.userId] || {};
-                const status = onlineStatus[conv.userId] || {};
                 const profileImage = getProfileImageUrl(profile);
+                const statusDisplay = getStatusDisplay(conv.userId);
+                const StatusIcon = statusDisplay.icon;
                 
                 return (
                   <button
@@ -603,9 +623,18 @@ export default function MessagesComponent() {
                           <span className="text-white font-bold text-lg">{conv.name.charAt(0).toUpperCase()}</span>
                         </div>
                       )}
-                      {status.isOnline && (
-                        <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full ring-2 ring-white animate-pulse"></span>
-                      )}
+                      {/* Status Indicator */}
+                      <div className="absolute -bottom-0.5 -right-0.5">
+                        {statusDisplay.dotColor ? (
+                          <div className={`w-3.5 h-3.5 ${statusDisplay.dotColor} rounded-full ring-2 ring-white ${statusDisplay.dotColor === 'bg-green-500' ? 'animate-pulse' : ''}`} />
+                        ) : StatusIcon ? (
+                          <div className="w-3.5 h-3.5 bg-red-500 rounded-full ring-2 ring-white flex items-center justify-center">
+                            <XCircle className="w-2.5 h-2.5 text-white" />
+                          </div>
+                        ) : (
+                          <div className="w-3.5 h-3.5 bg-gray-400 rounded-full ring-2 ring-white" />
+                        )}
+                      </div>
                     </div>
                     
                     {/* Info */}
@@ -616,23 +645,15 @@ export default function MessagesComponent() {
                       </div>
                       <p className="text-sm text-gray-500 truncate mt-0.5">{conv.lastMessage}</p>
                       <div className="flex items-center gap-2 mt-1">
-                        {status.isOnline ? (
-                          <span className="inline-flex items-center gap-1">
-                            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                            <span className="text-xs text-green-600 font-medium">Online</span>
-                          </span>
-                        ) : (
-                          <span className="text-xs text-gray-400">
-                            {status.lastSeen ? 
-                              `Last seen ${formatLastSeen(status.lastSeen)}` : "Offline"}
-                          </span>
-                        )}
+                        <span className={`text-xs ${statusDisplay.color}`}>
+                          {statusDisplay.text}
+                        </span>
                       </div>
                     </div>
                     
                     {/* Unread Badge */}
                     {conv.unread > 0 && (
-                      <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                      <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 animate-pulse">
                         <span className="text-white text-xs font-medium">{conv.unread}</span>
                       </div>
                     )}
@@ -684,24 +705,44 @@ export default function MessagesComponent() {
                       </div>
                     );
                   })()}
-                  {onlineStatus[selectedChat.userId]?.isOnline && (
-                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full ring-2 ring-white animate-pulse"></span>
-                  )}
+                  {/* Status Indicator */}
+                  <div className="absolute -bottom-0.5 -right-0.5">
+                    {(() => {
+                      const status = onlineStatus[selectedChat.userId];
+                      if (status?.isOnline && status?.isActive) {
+                        return <div className="w-3 h-3 bg-green-500 rounded-full ring-2 ring-white animate-pulse" />;
+                      }
+                      if (!status?.isActive) {
+                        return (
+                          <div className="w-3 h-3 bg-red-500 rounded-full ring-2 ring-white flex items-center justify-center">
+                            <XCircle className="w-2 h-2 text-white" />
+                          </div>
+                        );
+                      }
+                      return <div className="w-3 h-3 bg-gray-400 rounded-full ring-2 ring-white" />;
+                    })()}
+                  </div>
                 </div>
                 
                 <div>
                   <p className="font-semibold text-gray-800">{selectedChat.name}</p>
                   <p className="text-xs">
-                    {onlineStatus[selectedChat.userId]?.isOnline ? (
-                      <span className="text-green-600 font-medium">Online</span>
-                    ) : otherUserTyping ? (
-                      <span className="text-gray-500 italic">Typing...</span>
-                    ) : (
-                      <span className="text-gray-400">
-                        {onlineStatus[selectedChat.userId]?.lastSeen ? 
-                          `Last seen ${formatLastSeen(onlineStatus[selectedChat.userId].lastSeen)}` : "Offline"}
-                      </span>
-                    )}
+                    {(() => {
+                      const status = onlineStatus[selectedChat.userId];
+                      if (status?.isOnline && status?.isActive) {
+                        return <span className="text-green-600 font-medium">Online</span>;
+                      }
+                      if (!status?.isActive) {
+                        return <span className="text-red-500 font-medium">Inactive</span>;
+                      }
+                      if (otherUserTyping) {
+                        return <span className="text-gray-500 italic">Typing...</span>;
+                      }
+                      if (status?.lastSeen) {
+                        return <span className="text-gray-400">Last seen {formatLastSeen(status.lastSeen)}</span>;
+                      }
+                      return <span className="text-gray-400">Offline</span>;
+                    })()}
                   </p>
                 </div>
               </div>
@@ -738,14 +779,14 @@ export default function MessagesComponent() {
                   <p className="text-sm text-gray-400 mt-1">Send a message to start the conversation</p>
                 </div>
               ) : (
-                messages.map((msg, index) => {
+                messages.map((msg) => {
                   const isOwn = msg.senderId === currentUser?.uid;
                   const status = getMessageStatus(msg);
                   const StatusIcon = status?.icon;
                   
                   return (
                     <div
-                      key={msg.id || index}
+                      key={msg.id}
                       className={`flex ${isOwn ? "justify-end" : "justify-start"} animate-fadeIn`}
                     >
                       <div
@@ -761,13 +802,10 @@ export default function MessagesComponent() {
                             {msg.timestamp?.toLocaleTimeString?.([], { hour: '2-digit', minute: '2-digit' }) || 
                              new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
-                          {isOwn && StatusIcon && !msg.isTemp && (
+                          {isOwn && StatusIcon && (
                             <span title={status?.title}>
                               <StatusIcon className={`w-3 h-3 ${status?.color}`} />
                             </span>
-                          )}
-                          {msg.isTemp && (
-                            <div className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
                           )}
                         </div>
                       </div>
