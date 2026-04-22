@@ -19,13 +19,20 @@ import {
   Shield,
   Gift,
   CheckCircle,
-  XCircle
+  XCircle,
+  Package,
+  ShoppingBag,
+  DollarSign,
+  Heart,
+  MessageCircle,
+  Settings
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
 import { useAdminAuth } from "@/context/AdminAuthContext";
-import { updateUserProfile, getUserProfile } from "@/lib/firestoreService";
+import { updateUserProfile, getUserProfile, getServiceProvider } from "@/lib/firestoreService";
 import NotificationBell from "@/components/NotificationBell";
+import MessageBox from "@/components/MessageBox";
 import SearchBar from "@/components/SearchBar";
 
 export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
@@ -36,17 +43,22 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [isProvider, setIsProvider] = useState(false);
+  const [checkingProvider, setCheckingProvider] = useState(true);
   const userMenuRef = useRef(null);
   const router = useRouter();
   const { language, toggleLanguage } = useLanguage();
   const { currentUser, logout, isAuthenticated, setCurrentUser } = useAuth();
   const { isAdmin, refreshAdminStatus } = useAdminAuth();
 
-  // Fetch user active status from database
+  // Fetch user active status from database and check if user is a provider
   useEffect(() => {
     if (currentUser) {
       fetchUserStatus();
       refreshAdminStatus();
+      checkIfProvider();
+    } else {
+      setCheckingProvider(false);
     }
   }, [currentUser]);
 
@@ -59,6 +71,23 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
       }
     } catch (error) {
       console.error("Error fetching user status:", error);
+    }
+  };
+
+  // Check if user is a service provider
+  const checkIfProvider = async () => {
+    try {
+      const providerResult = await getServiceProvider(currentUser.uid);
+      if (providerResult.success && providerResult.data) {
+        setIsProvider(true);
+      } else {
+        setIsProvider(false);
+      }
+    } catch (error) {
+      console.error("Error checking provider status:", error);
+      setIsProvider(false);
+    } finally {
+      setCheckingProvider(false);
     }
   };
 
@@ -131,6 +160,18 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
     alert("Referral link copied to clipboard! Share with your friends.");
   };
 
+  // Handle messages click - goes to dashboard with messages tab
+  const handleMessagesClick = () => {
+    router.push("/dashboard?tab=messages");
+    setShowUserMenu(false);
+  };
+
+  // Handle dashboard click
+  const handleDashboardClick = () => {
+    router.push("/dashboard");
+    setShowUserMenu(false);
+  };
+
   // Translations
   const translations = {
     english: {
@@ -146,7 +187,15 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
       adminDashboard: "Admin Panel",
       referFriend: "Refer a Friend",
       active: "Active",
-      inactive: "Inactive"
+      inactive: "Inactive",
+      myServices: "My Services",
+      orders: "Orders",
+      earnings: "Earnings",
+      myBookings: "My Bookings",
+      saved: "Saved",
+      messages: "Messages",
+      settings: "Settings",
+      providerBadge: "Provider"
     },
     bengali: {
       explore: "এক্সপ্লোর",
@@ -161,39 +210,76 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
       adminDashboard: "অ্যাডমিন প্যানেল",
       referFriend: "বন্ধুকে রেফার করুন",
       active: "সক্রিয়",
-      inactive: "নিষ্ক্রিয়"
+      inactive: "নিষ্ক্রিয়",
+      myServices: "আমার সেবা",
+      orders: "অর্ডার",
+      earnings: "আয়",
+      myBookings: "আমার বুকিং",
+      saved: "সেভ করা",
+      messages: "বার্তা",
+      settings: "সেটিংস",
+      providerBadge: "প্রোভাইডার"
     }
   };
 
   const lang = translations[language];
 
-  // If not authenticated, show simplified navbar
-  if (!isAuthenticated) {
-    return (
-      <nav className={`bg-white sticky top-0 z-50 transition-all duration-300 ${isScrolled ? 'shadow-md border-b-0' : 'border-b border-gray-100'}`}>
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between py-3">
-            <Link href="/" className="flex items-center gap-2">
-              <Image src="/favicon.ico" alt="Logo" width={32} height={32} className="w-8 h-8" />
-              <span className="text-2xl font-bold text-black">Kaazbazar</span>
-            </Link>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={toggleLanguage}
-                className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-full text-black hover:bg-gray-50 transition"
-              >
-                <Globe className="w-4 h-4" />
-                <span className="text-sm">{language === "english" ? "EN" : "BN"}</span>
-              </button>
-              <button onClick={onShowLogin} className="text-black font-medium hover:text-gray-600 transition">
-                {lang.signIn}
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
-    );
-  }
+  // Get navigation links based on user role
+  const getNavLinks = () => {
+    if (!isAuthenticated) {
+      return [
+        { label: lang.explore, href: "/explore", icon: Sparkles }
+      ];
+    }
+    
+    // If user is a provider, don't show "Become a Provider"
+    if (isProvider) {
+      return [
+        { label: lang.myServices, href: "/provider/services", icon: Package },
+        { label: lang.orders, href: "/provider/orders", icon: ShoppingBag },
+        { label: lang.earnings, href: "/provider/earnings", icon: DollarSign }
+      ];
+    }
+    
+    // Customer view - show "Become a Provider" (since they are not a provider yet)
+    return [
+      { label: lang.explore, href: "/explore", icon: Sparkles },
+      { label: lang.myBookings, href: "/bookings", icon: Heart },
+      { label: lang.saved, href: "/saved", icon: Heart },
+      { label: lang.becomeProvider, href: "/become-provider", icon: Briefcase, highlight: true }
+    ];
+  };
+
+  // Get user menu items based on role
+  const getUserMenuItems = () => {
+    const commonItems = [
+      { label: lang.referFriend, icon: Gift, onClick: handleReferFriend, divider: false },
+      { divider: true },
+      { label: lang.logout, icon: LogOut, onClick: handleLogoutClick, danger: true }
+    ];
+
+    if (isProvider) {
+      return [
+        { label: lang.dashboard, icon: LayoutDashboard, onClick: handleDashboardClick },
+        { label: lang.messages, icon: MessageCircle, onClick: handleMessagesClick },
+        { label: lang.myServices, href: "/provider/services", icon: Package },
+        { label: lang.orders, href: "/provider/orders", icon: ShoppingBag },
+        { label: lang.earnings, href: "/provider/earnings", icon: DollarSign },
+        { label: lang.settings, href: "/settings", icon: Settings },
+        ...commonItems
+      ];
+    }
+    
+    // Customer menu
+    return [
+      { label: lang.dashboard, icon: LayoutDashboard, onClick: handleDashboardClick },
+      { label: lang.messages, icon: MessageCircle, onClick: handleMessagesClick },
+      { label: lang.myBookings, href: "/bookings", icon: Heart },
+      { label: lang.saved, href: "/saved", icon: Heart },
+      { label: lang.settings, href: "/settings", icon: Settings },
+      ...commonItems
+    ];
+  };
 
   return (
     <nav className={`bg-white sticky top-0 z-50 transition-all duration-300 ${isScrolled ? 'shadow-md border-b-0' : 'border-b border-gray-100'}`}>
@@ -210,9 +296,16 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
                 className="w-10 h-10 md:w-12 md:h-12"
                 priority
               />
-              <span className="text-2xl md:text-3xl font-bold text-black group-hover:text-gray-700 transition-colors">
-                Kaazbazar
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl md:text-3xl font-bold text-black group-hover:text-gray-700 transition-colors">
+                  Kaazbazar
+                </span>
+                {isProvider && (
+                  <span className="hidden md:inline-block px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">
+                    {lang.providerBadge}
+                  </span>
+                )}
+              </div>
             </Link>
 
             {/* Mobile menu button */}
@@ -224,8 +317,8 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
             </button>
           </div>
 
-          {/* Search Bar Component */}
-          <div className={`hidden md:block flex-1 max-w-2xl mx-8 transition-all duration-500 transform ${showSearchBar ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-10 scale-95 pointer-events-none'}`}>
+          {/* Search Bar Component - Visible to everyone */}
+          <div className="hidden md:block flex-1 max-w-2xl mx-8 transition-all duration-500">
             <SearchBar 
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
@@ -236,32 +329,17 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
 
           {/* Desktop Right Section */}
           <div className="hidden md:flex items-center space-x-6">
-            {/* Explore Link with Dropdown */}
-            <div className="relative group">
-              <button className="flex items-center gap-1 text-black hover:text-gray-600 font-medium transition">
-                {lang.explore}
-                <ChevronDown className="w-4 h-4 group-hover:rotate-180 transition-transform" />
-              </button>
-              <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-xl shadow-lg py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible z-20 border border-gray-100">
-                <Link href="/trending" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 transition-colors rounded-t-xl">
-                  <TrendingUp className="w-4 h-4" /> {lang.trending}
-                </Link>
-                <Link href="/top-rated" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 transition-colors">
-                  <Award className="w-4 h-4" /> {lang.topRated}
-                </Link>
-                <Link href="/near-you" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 transition-colors rounded-b-xl">
-                  <Sparkles className="w-4 h-4" /> {lang.nearYou}
-                </Link>
-              </div>
-            </div>
-            
-            {/* Become a Provider Link */}
-            <Link 
-              href="/become-provider" 
-              className="text-black hover:text-gray-600 transition font-medium"
-            >
-              {lang.becomeProvider}
-            </Link>
+            {/* Dynamic Navigation Links based on role */}
+            {getNavLinks().map((link, idx) => (
+              <Link
+                key={idx}
+                href={link.href}
+                className={`text-black hover:text-gray-600 transition font-medium flex items-center gap-1 ${link.highlight ? 'text-green-600 hover:text-green-700' : ''}`}
+              >
+                {link.icon && <link.icon className="w-4 h-4" />}
+                {link.label}
+              </Link>
+            ))}
             
             {/* Language Toggle */}
             <button
@@ -272,139 +350,150 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
               <span className="text-sm">{language === "english" ? "EN" : "BN"}</span>
             </button>
             
-            {/* Notification Bell */}
-            <NotificationBell />
-            
-            {/* User Menu with Active Status */}
-            <div className="relative" ref={userMenuRef}>
-              <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center gap-2 group"
-              >
-                <div className="relative">
-                  {currentUser?.photoURL ? (
-                    <img 
-                      src={currentUser.photoURL} 
-                      alt="Avatar"
-                      className="w-8 h-8 rounded-full object-cover ring-2 ring-transparent group-hover:ring-gray-300 transition"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center text-white font-bold group-hover:from-gray-600 group-hover:to-gray-800 transition">
-                      {currentUser?.name?.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  {/* Online/Offline Status Dot */}
-                  <div className="absolute -bottom-0.5 -right-0.5">
-                    {isActive ? (
-                      <div className="w-3 h-3 bg-green-500 rounded-full ring-2 ring-white animate-pulse" />
-                    ) : (
-                      <div className="w-3 h-3 bg-red-500 rounded-full ring-2 ring-white flex items-center justify-center">
-                        <XCircle className="w-2 h-2 text-white" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${showUserMenu ? 'rotate-180' : ''}`} />
-              </button>
-
-              {showUserMenu && (
-                <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-2xl py-2 border border-gray-100 z-30">
-                  {/* Active Status Toggle Section */}
-                  <div className="px-4 py-3 border-b border-gray-100">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {isActive ? (
-                          <CheckCircle className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <XCircle className="w-4 h-4 text-red-500" />
-                        )}
-                        <span className="text-sm font-medium">
-                          {isActive ? lang.active : lang.inactive}
-                        </span>
-                      </div>
-                      <button
-                        onClick={toggleActiveStatus}
-                        disabled={updatingStatus}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                          isActive ? 'bg-green-600' : 'bg-gray-300'
-                        } ${updatingStatus ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            isActive ? 'translate-x-6' : 'translate-x-1'
-                          }`}
+            {/* Show different content based on authentication */}
+            {isAuthenticated ? (
+              <>
+                {/* Message Box */}
+                <MessageBox />
+                
+                {/* Notification Bell - Only for logged in users */}
+                <NotificationBell />
+                
+                {/* User Menu with Active Status */}
+                <div className="relative" ref={userMenuRef}>
+                  <button
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className="flex items-center gap-2 group"
+                  >
+                    <div className="relative">
+                      {currentUser?.photoURL ? (
+                        <img 
+                          src={currentUser.photoURL} 
+                          alt="Avatar"
+                          className="w-8 h-8 rounded-full object-cover ring-2 ring-transparent group-hover:ring-gray-300 transition"
                         />
-                      </button>
+                      ) : (
+                        <div className="w-8 h-8 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center text-white font-bold group-hover:from-gray-600 group-hover:to-gray-800 transition">
+                          {currentUser?.name?.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      {/* Online/Offline Status Dot */}
+                      <div className="absolute -bottom-0.5 -right-0.5">
+                        {isActive ? (
+                          <div className="w-3 h-3 bg-green-500 rounded-full ring-2 ring-white animate-pulse" />
+                        ) : (
+                          <div className="w-3 h-3 bg-red-500 rounded-full ring-2 ring-white flex items-center justify-center">
+                            <XCircle className="w-2 h-2 text-white" />
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-xs text-gray-400 mt-1.5">
-                      {isActive 
-                        ? "✓ You're visible to customers" 
-                        : "✗ You're hidden from customers"}
-                    </p>
-                  </div>
+                    <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${showUserMenu ? 'rotate-180' : ''}`} />
+                  </button>
 
-                  {/* Dashboard Link */}
-                  <Link
-                    href="/dashboard"
-                    className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
-                    onClick={() => setShowUserMenu(false)}
-                  >
-                    <LayoutDashboard className="w-4 h-4" />
-                    <span className="text-sm">{lang.dashboard}</span>
-                  </Link>
+                  {showUserMenu && (
+                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-2xl py-2 border border-gray-100 z-30">
+                      {/* Active Status Toggle Section */}
+                      <div className="px-4 py-3 border-b border-gray-100">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {isActive ? (
+                              <CheckCircle className="w-4 h-4 text-green-500" />
+                            ) : (
+                              <XCircle className="w-4 h-4 text-red-500" />
+                            )}
+                            <span className="text-sm font-medium">
+                              {isActive ? lang.active : lang.inactive}
+                            </span>
+                          </div>
+                          <button
+                            onClick={toggleActiveStatus}
+                            disabled={updatingStatus}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                              isActive ? 'bg-green-600' : 'bg-gray-300'
+                            } ${updatingStatus ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                isActive ? 'translate-x-6' : 'translate-x-1'
+                              }`}
+                            />
+                          </button>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1.5">
+                          {isActive 
+                            ? "✓ You're visible to customers" 
+                            : "✗ You're hidden from customers"}
+                        </p>
+                      </div>
 
-                  {/* Admin Dashboard Link - Only for admin users */}
-                  {isAdmin && (
-                    <Link
-                      href="/admin"
-                      className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
-                      onClick={() => setShowUserMenu(false)}
-                    >
-                      <Shield className="w-4 h-4" />
-                      <span className="text-sm">{lang.adminDashboard}</span>
-                    </Link>
+                      {/* Dynamic User Menu Items */}
+                      {getUserMenuItems().map((item, idx) => {
+                        if (item.divider) {
+                          return <hr key={idx} className="my-1" />;
+                        }
+                        
+                        if (item.href) {
+                          return (
+                            <Link
+                              key={idx}
+                              href={item.href}
+                              className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
+                              onClick={() => setShowUserMenu(false)}
+                            >
+                              <item.icon className="w-4 h-4" />
+                              <span className="text-sm">{item.label}</span>
+                            </Link>
+                          );
+                        }
+                        
+                        return (
+                          <button
+                            key={idx}
+                            onClick={() => {
+                              item.onClick();
+                              setShowUserMenu(false);
+                            }}
+                            className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors ${
+                              item.danger 
+                                ? 'text-red-600 hover:bg-red-50' 
+                                : 'text-gray-700 hover:bg-gray-50 hover:text-black'
+                            }`}
+                          >
+                            <item.icon className="w-4 h-4" />
+                            <span className="text-sm">{item.label}</span>
+                          </button>
+                        );
+                      })}
+
+                      {/* Admin Dashboard Link - Only for admin users */}
+                      {isAdmin && (
+                        <>
+                          <hr className="my-1" />
+                          <Link
+                            href="/admin"
+                            className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
+                            onClick={() => setShowUserMenu(false)}
+                          >
+                            <Shield className="w-4 h-4" />
+                            <span className="text-sm">{lang.adminDashboard}</span>
+                          </Link>
+                        </>
+                      )}
+                    </div>
                   )}
-
-                  {/* Refer a Friend Link */}
-                  <button
-                    onClick={() => {
-                      handleReferFriend();
-                      setShowUserMenu(false);
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
-                  >
-                    <Gift className="w-4 h-4" />
-                    <span className="text-sm">{lang.referFriend}</span>
-                  </button>
-
-                  <hr className="my-1" />
-                  
-                  {/* Logout Button */}
-                  <button
-                    onClick={handleLogoutClick}
-                    disabled={isLoggingOut}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
-                  >
-                    {isLoggingOut ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
-                        <span className="text-sm">Logging out...</span>
-                      </>
-                    ) : (
-                      <>
-                        <LogOut className="w-4 h-4" />
-                        <span className="text-sm">{lang.logout}</span>
-                      </>
-                    )}
-                  </button>
                 </div>
-              )}
-            </div>
+              </>
+            ) : (
+              <button onClick={onShowLogin} className="text-black font-medium hover:text-gray-600 transition">
+                {lang.signIn}
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Mobile Search Bar */}
-        <div className={`md:hidden transition-all duration-500 overflow-hidden ${showSearchBar ? 'max-h-24 opacity-100 mt-2 pb-3' : 'max-h-0 opacity-0'}`}>
+        {/* Mobile Search Bar - Visible to everyone */}
+        <div className="md:hidden mt-2 pb-3">
           <SearchBar 
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
@@ -413,19 +502,27 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
           />
         </div>
 
-        {/* Mobile Menu with Active Status */}
+        {/* Mobile Menu */}
         {isMenuOpen && (
           <div className="md:hidden py-4 border-t border-gray-200 space-y-2">
-            <Link href="/" className="flex items-center gap-3 py-2 text-black hover:bg-gray-50 px-3 rounded-lg transition">
+            <Link href="/" className="flex items-center gap-3 py-2 text-black hover:bg-gray-50 px-3 rounded-lg transition" onClick={() => setIsMenuOpen(false)}>
               <Home className="w-5 h-5" /> {lang.home}
             </Link>
-            <Link href="/explore" className="flex items-center gap-3 py-2 text-black hover:bg-gray-50 px-3 rounded-lg transition">
-              <Sparkles className="w-5 h-5" /> {lang.explore}
-            </Link>
             
-            <Link href="/become-provider" className="flex items-center gap-3 py-2 text-black hover:bg-gray-50 px-3 rounded-lg transition">
-              <Briefcase className="w-5 h-5" /> {lang.becomeProvider}
-            </Link>
+            {/* Dynamic Mobile Navigation Links */}
+            {getNavLinks().map((link, idx) => (
+              <Link
+                key={idx}
+                href={link.href}
+                className={`flex items-center gap-3 py-2 hover:bg-gray-50 px-3 rounded-lg transition ${
+                  link.highlight ? 'text-green-600' : 'text-black'
+                }`}
+                onClick={() => setIsMenuOpen(false)}
+              >
+                {link.icon && <link.icon className="w-5 h-5" />}
+                {link.label}
+              </Link>
+            ))}
             
             {/* Language Toggle in Mobile */}
             <button
@@ -436,70 +533,117 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
               <span>{language === "english" ? "English" : "বাংলা"}</span>
             </button>
             
-            {/* Active Status in Mobile */}
-            <div className="flex items-center justify-between py-2 px-3">
-              <div className="flex items-center gap-2">
-                {isActive ? (
-                  <CheckCircle className="w-4 h-4 text-green-500" />
-                ) : (
-                  <XCircle className="w-4 h-4 text-red-500" />
+            {isAuthenticated ? (
+              <>
+                {/* Message Box in Mobile */}
+                <div className="px-3 py-2">
+                  <MessageBox />
+                </div>
+                
+                {/* Dashboard in Mobile */}
+                <button
+                  onClick={() => {
+                    handleDashboardClick();
+                    setIsMenuOpen(false);
+                  }}
+                  className="flex items-center gap-3 w-full text-left py-2 text-black hover:bg-gray-50 px-3 rounded-lg transition"
+                >
+                  <LayoutDashboard className="w-5 h-5" /> {lang.dashboard}
+                </button>
+                
+                {/* Active Status in Mobile */}
+                <div className="flex items-center justify-between py-2 px-3">
+                  <div className="flex items-center gap-2">
+                    {isActive ? (
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-red-500" />
+                    )}
+                    <span className="text-sm">{isActive ? lang.active : lang.inactive}</span>
+                  </div>
+                  <button
+                    onClick={toggleActiveStatus}
+                    disabled={updatingStatus}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      isActive ? 'bg-green-600' : 'bg-gray-300'
+                    } ${updatingStatus ? 'opacity-50' : ''}`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        isActive ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+                
+                {/* Notification Bell in Mobile */}
+                <div className="px-3 py-2">
+                  <NotificationBell />
+                </div>
+                
+                {/* Refer Friend in Mobile */}
+                <button
+                  onClick={() => {
+                    handleReferFriend();
+                    setIsMenuOpen(false);
+                  }}
+                  className="flex items-center gap-3 w-full text-left py-2 text-black hover:bg-gray-50 px-3 rounded-lg transition"
+                >
+                  <Gift className="w-5 h-5" /> {lang.referFriend}
+                </button>
+                
+                {/* Settings in Mobile */}
+                <Link
+                  href="/settings"
+                  className="flex items-center gap-3 py-2 text-black hover:bg-gray-50 px-3 rounded-lg transition"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <Settings className="w-5 h-5" /> {lang.settings}
+                </Link>
+                
+                {/* Logout in Mobile */}
+                <button 
+                  onClick={() => {
+                    handleLogoutClick();
+                    setIsMenuOpen(false);
+                  }} 
+                  disabled={isLoggingOut}
+                  className="flex items-center gap-3 w-full text-left py-2 text-red-600 hover:bg-red-50 px-3 rounded-lg transition disabled:opacity-50"
+                >
+                  {isLoggingOut ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                      <span>Logging out...</span>
+                    </>
+                  ) : (
+                    <>
+                      <LogOut className="w-5 h-5" /> {lang.logout}
+                    </>
+                  )}
+                </button>
+                
+                {/* Admin Dashboard in Mobile */}
+                {isAdmin && (
+                  <Link
+                    href="/admin"
+                    className="flex items-center gap-3 py-2 text-black hover:bg-gray-50 px-3 rounded-lg transition"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Shield className="w-5 h-5" /> {lang.adminDashboard}
+                  </Link>
                 )}
-                <span className="text-sm">{isActive ? lang.active : lang.inactive}</span>
-              </div>
-              <button
-                onClick={toggleActiveStatus}
-                disabled={updatingStatus}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  isActive ? 'bg-green-600' : 'bg-gray-300'
-                } ${updatingStatus ? 'opacity-50' : ''}`}
+              </>
+            ) : (
+              <button 
+                onClick={() => {
+                  onShowLogin();
+                  setIsMenuOpen(false);
+                }} 
+                className="flex items-center gap-3 w-full text-left py-2 text-black hover:bg-gray-50 px-3 rounded-lg transition"
               >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    isActive ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
+                <User className="w-5 h-5" /> {lang.signIn}
               </button>
-            </div>
-            
-            {/* Notification Bell in Mobile */}
-            <div className="px-3 py-2">
-              <NotificationBell />
-            </div>
-            
-            {/* Dashboard Links in Mobile */}
-            <Link href="/dashboard" className="flex items-center gap-3 py-2 text-black hover:bg-gray-50 px-3 rounded-lg transition">
-              <LayoutDashboard className="w-5 h-5" /> {lang.dashboard}
-            </Link>
-            
-            {isAdmin && (
-              <Link href="/admin" className="flex items-center gap-3 py-2 text-black hover:bg-gray-50 px-3 rounded-lg transition">
-                <Shield className="w-5 h-5" /> {lang.adminDashboard}
-              </Link>
             )}
-            
-            <button
-              onClick={handleReferFriend}
-              className="flex items-center gap-3 w-full text-left py-2 text-black hover:bg-gray-50 px-3 rounded-lg transition"
-            >
-              <Gift className="w-5 h-5" /> {lang.referFriend}
-            </button>
-            
-            <button 
-              onClick={handleLogoutClick} 
-              disabled={isLoggingOut}
-              className="flex items-center gap-3 w-full text-left py-2 text-red-600 hover:bg-red-50 px-3 rounded-lg transition disabled:opacity-50"
-            >
-              {isLoggingOut ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
-                  <span>Logging out...</span>
-                </>
-              ) : (
-                <>
-                  <LogOut className="w-5 h-5" /> {lang.logout}
-                </>
-              )}
-            </button>
           </div>
         )}
       </div>
