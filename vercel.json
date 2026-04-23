@@ -1,12 +1,4 @@
 {
-  "env": {
-    "MONGODB_URI": "@mongodb_uri"
-  },
-  "build": {
-    "env": {
-      "MONGODB_URI": "@mongodb_uri"
-    }
-  },
   "functions": {
     "app/api/**/*.js": {
       "maxDuration": 10
