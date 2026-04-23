@@ -4,7 +4,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ServicesPage from "@/components/ServicesPage";
 import CategoryFilters from "@/components/CategoryFilters";
-import UserDashboard from "@/components/UserDashboard";
+import ServiceCards from "@/components/ServiceCards";
 import LoginModal from "@/components/LoginModal";
 import HeroSection from "@/components/HeroSection";
 import WhyKaazbazar from "@/components/WhyKaazbazar";
@@ -18,13 +18,11 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleLogin = (userData) => {
-    // AuthContext already handles the user state
     setShowLoginModal(false);
   };
 
   const handleLogout = async () => {
     await logout();
-    // No refresh needed - state updates automatically
   };
 
   if (loading) {
@@ -54,12 +52,9 @@ export default function Home() {
           setSearchQuery={setSearchQuery}
         />
 
-        {currentUser && (
-          <div className="container mx-auto px-4 py-8">
-            <UserDashboard currentUser={currentUser} />
-          </div>
-        )}
-        
+        {/* Service Cards - visible to everyone */}
+        <ServiceCards />
+
         <div className="container mx-auto px-4 py-6">
           <CategoryFilters 
             selectedCategory={selectedCategory}

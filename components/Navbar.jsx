@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import Image from "next/image";
 import { 
   User, 
@@ -25,7 +25,10 @@ import {
   DollarSign,
   Heart,
   MessageCircle,
-  Settings
+  Settings,
+  Compass,
+  HomeIcon,
+  Bell
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
@@ -36,6 +39,7 @@ import MessageBox from "@/components/MessageBox";
 import SearchBar from "@/components/SearchBar";
 
 export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
+  const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showSearchBar, setShowSearchBar] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -45,7 +49,11 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [isProvider, setIsProvider] = useState(false);
   const [checkingProvider, setCheckingProvider] = useState(true);
+  const [mobileMessageOpen, setMobileMessageOpen] = useState(false);
+  const [mobileNotifOpen, setMobileNotifOpen] = useState(false);
   const userMenuRef = useRef(null);
+  const mobileMessageRef = useRef(null);
+  const mobileNotifRef = useRef(null);
   const router = useRouter();
   const { language, toggleLanguage } = useLanguage();
   const { currentUser, logout, isAuthenticated, setCurrentUser } = useAuth();
@@ -125,11 +133,17 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Close user menu when clicking outside
+  // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setShowUserMenu(false);
+      }
+      if (mobileMessageRef.current && !mobileMessageRef.current.contains(event.target)) {
+        setMobileMessageOpen(false);
+      }
+      if (mobileNotifRef.current && !mobileNotifRef.current.contains(event.target)) {
+        setMobileNotifOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -281,44 +295,303 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
     ];
   };
 
-  return (
-    <nav className={`bg-white sticky top-0 z-50 transition-all duration-300 ${isScrolled ? 'shadow-md border-b-0' : 'border-b border-gray-100'}`}>
-      <div className="container mx-auto px-4">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between py-3 md:py-0">
-          {/* Logo */}
-          <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2 group">
-              <Image 
-                src="/favicon.ico" 
-                alt="Kaazbazar Logo" 
-                width={40} 
-                height={40} 
-                className="w-10 h-10 md:w-12 md:h-12"
-                priority
-              />
-              <div className="flex items-center gap-2">
-                <span className="text-2xl md:text-3xl font-bold text-black group-hover:text-gray-700 transition-colors">
-                  Kaazbazar
-                </span>
-                {isProvider && (
-                  <span className="hidden md:inline-block px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">
-                    {lang.providerBadge}
-                  </span>
-                )}
-              </div>
-            </Link>
-
-            {/* Mobile menu button */}
-            <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition"
+  // Reusable user dropdown (used in desktop and mobile profile)
+  const UserDropdown = () => (
+    <div className="absolute right-0 bottom-12 md:bottom-auto md:top-full md:mt-2 w-64 bg-white rounded-xl shadow-2xl py-2 border border-gray-100 z-50">
+      <div className="px-4 py-3 border-b border-gray-100">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {isActive ? <CheckCircle className="w-4 h-4 text-green-500" /> : <XCircle className="w-4 h-4 text-red-500" />}
+            <span className="text-sm font-medium">{isActive ? lang.active : lang.inactive}</span>
+          </div>
+          <button
+            onClick={toggleActiveStatus}
+            disabled={updatingStatus}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+              isActive ? 'bg-green-600' : 'bg-gray-300'
+            } ${updatingStatus ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isActive ? 'translate-x-6' : 'translate-x-1'}`} />
+          </button>
+        </div>
+        <p className="text-xs text-gray-400 mt-1.5">
+          {isActive ? "✓ You're visible to customers" : "✗ You're hidden from customers"}
+        </p>
+      </div>
+      {getUserMenuItems().map((item, idx) => {
+        if (item.divider) return <hr key={idx} className="my-1" />;
+        if (item.href) {
+          return (
+            <Link
+              key={idx}
+              href={item.href}
+              className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
+              onClick={() => setShowUserMenu(false)}
             >
-              {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
+              <item.icon className="w-4 h-4" />
+              <span className="text-sm">{item.label}</span>
+            </Link>
+          );
+        }
+        return (
+          <button
+            key={idx}
+            onClick={() => {
+              item.onClick();
+              setShowUserMenu(false);
+            }}
+            className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors ${
+              item.danger ? 'text-red-600 hover:bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-black'
+            }`}
+          >
+            <item.icon className="w-4 h-4" />
+            <span className="text-sm">{item.label}</span>
+          </button>
+        );
+      })}
+      {isAdmin && (
+        <>
+          <hr className="my-1" />
+          <Link
+            href="/admin"
+            className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
+            onClick={() => setShowUserMenu(false)}
+          >
+            <Shield className="w-4 h-4" />
+            <span className="text-sm">{lang.adminDashboard}</span>
+          </Link>
+        </>
+      )}
+    </div>
+  );
+
+  // ========== MOBILE BOTTOM NAVIGATION ==========
+  const MobileBottomNav = () => (
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50 md:hidden">
+      <div className="flex justify-around items-center py-2 px-2">
+        {/* Home */}
+        <button
+          onClick={() => router.push("/")}
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-lg transition-colors ${
+            pathname === "/" ? "text-green-600" : "text-gray-500 hover:text-green-500"
+          }`}
+        >
+          <HomeIcon className="w-5 h-5" />
+          <span className="text-[10px] mt-0.5">Home</span>
+        </button>
+
+        {/* Explore */}
+        <button
+          onClick={() => router.push("/explore")}
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-lg transition-colors ${
+            pathname === "/explore" ? "text-green-600" : "text-gray-500 hover:text-green-500"
+          }`}
+        >
+          <Compass className="w-5 h-5" />
+          <span className="text-[10px] mt-0.5">Explore</span>
+        </button>
+
+        {/* Dashboard */}
+        <button
+          onClick={() => router.push("/dashboard")}
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-lg transition-colors ${
+            pathname === "/dashboard" ? "text-green-600" : "text-gray-500 hover:text-green-500"
+          }`}
+        >
+          <LayoutDashboard className="w-5 h-5" />
+          <span className="text-[10px] mt-0.5">Dashboard</span>
+        </button>
+
+        {isAuthenticated ? (
+          <>
+            {/* Messages - Fixed with proper ref */}
+            <div className="relative" ref={mobileMessageRef}>
+              <button
+                onClick={() => setMobileMessageOpen(!mobileMessageOpen)}
+                className="flex flex-col items-center justify-center py-1 px-2"
+              >
+                <MessageCircle className="w-5 h-5" />
+                <span className="text-[10px] mt-0.5">Messages</span>
+              </button>
+              {mobileMessageOpen && (
+                <div className="absolute bottom-10 left-1/2 transform -translate-x-1/2 mb-2">
+                  <MessageBox />
+                </div>
+              )}
+            </div>
+
+            {/* Notifications - Fixed with proper ref */}
+            <div className="relative" ref={mobileNotifRef}>
+              <button
+                onClick={() => setMobileNotifOpen(!mobileNotifOpen)}
+                className="flex flex-col items-center justify-center py-1 px-2"
+              >
+                <Bell className="w-5 h-5" />
+                <span className="text-[10px] mt-0.5">Alerts</span>
+              </button>
+              {mobileNotifOpen && (
+                <div className="absolute bottom-10 left-1/2 transform -translate-x-1/2 mb-2">
+                  <NotificationBell />
+                </div>
+              )}
+            </div>
+
+            {/* Profile (avatar with dropdown) */}
+            <div className="relative">
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex flex-col items-center justify-center py-1 px-2"
+              >
+                <div className="relative">
+                  {currentUser?.photoURL ? (
+                    <img src={currentUser.photoURL} alt="Avatar" className="w-6 h-6 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-6 h-6 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center text-white font-bold text-xs">
+                      {currentUser?.name?.charAt(0).toUpperCase() || "U"}
+                    </div>
+                  )}
+                  <div className="absolute -bottom-0.5 -right-0.5">
+                    {isActive ? (
+                      <div className="w-2 h-2 bg-green-500 rounded-full ring-2 ring-white animate-pulse" />
+                    ) : (
+                      <div className="w-2 h-2 bg-red-500 rounded-full ring-2 ring-white flex items-center justify-center">
+                        <XCircle className="w-1.5 h-1.5 text-white" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <span className="text-[10px] mt-0.5">Profile</span>
+              </button>
+              {showUserMenu && <UserDropdown />}
+            </div>
+          </>
+        ) : (
+          <button
+            onClick={onShowLogin}
+            className="flex flex-col items-center justify-center py-1 px-2 text-gray-500 hover:text-green-500"
+          >
+            <User className="w-5 h-5" />
+            <span className="text-[10px] mt-0.5">Sign In</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      <nav className={`bg-white sticky top-0 z-40 transition-all duration-300 ${isScrolled ? 'shadow-md' : 'border-b border-gray-100'}`}>
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between py-3 md:py-0">
+            {/* Logo */}
+            <div className="flex items-center justify-between">
+              <Link href="/" className="flex items-center gap-2 group">
+                <Image 
+                  src="/favicon.ico" 
+                  alt="Kaazbazar Logo" 
+                  width={40} 
+                  height={40} 
+                  className="w-10 h-10 md:w-12 md:h-12"
+                  priority
+                />
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl md:text-3xl font-bold text-black group-hover:text-gray-700 transition-colors">
+                    Kaazbazar
+                  </span>
+                  {isProvider && (
+                    <span className="hidden md:inline-block px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">
+                      {lang.providerBadge}
+                    </span>
+                  )}
+                </div>
+              </Link>
+
+              {/* Mobile menu button - kept for compatibility */}
+              <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition"
+              >
+                {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              </button>
+            </div>
+
+            {/* Search Bar Component - Visible to everyone */}
+            <div className="hidden md:block flex-1 max-w-2xl mx-8 transition-all duration-500">
+              <SearchBar 
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                isScrolled={isScrolled}
+                language={language}
+              />
+            </div>
+
+            {/* Desktop Right Section - UNCHANGED */}
+            <div className="hidden md:flex items-center space-x-6">
+              {getNavLinks().map((link, idx) => (
+                <Link
+                  key={idx}
+                  href={link.href}
+                  className={`text-black hover:text-gray-600 transition font-medium flex items-center gap-1 ${link.highlight ? 'text-green-600 hover:text-green-700' : ''}`}
+                >
+                  {link.icon && <link.icon className="w-4 h-4" />}
+                  {link.label}
+                </Link>
+              ))}
+              
+              <button
+                onClick={toggleLanguage}
+                className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-full hover:border-gray-500 hover:bg-gray-50 transition text-black"
+              >
+                <Globe className="w-4 h-4" />
+                <span className="text-sm">{language === "english" ? "EN" : "BN"}</span>
+              </button>
+              
+              {isAuthenticated ? (
+                <>
+                  <MessageBox />
+                  <NotificationBell />
+                  <div className="relative" ref={userMenuRef}>
+                    <button
+                      onClick={() => setShowUserMenu(!showUserMenu)}
+                      className="flex items-center gap-2 group"
+                    >
+                      <div className="relative">
+                        {currentUser?.photoURL ? (
+                          <img 
+                            src={currentUser.photoURL} 
+                            alt="Avatar"
+                            className="w-8 h-8 rounded-full object-cover ring-2 ring-transparent group-hover:ring-gray-300 transition"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center text-white font-bold group-hover:from-gray-600 group-hover:to-gray-800 transition">
+                            {currentUser?.name?.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="absolute -bottom-0.5 -right-0.5">
+                          {isActive ? (
+                            <div className="w-3 h-3 bg-green-500 rounded-full ring-2 ring-white animate-pulse" />
+                          ) : (
+                            <div className="w-3 h-3 bg-red-500 rounded-full ring-2 ring-white flex items-center justify-center">
+                              <XCircle className="w-2 h-2 text-white" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${showUserMenu ? 'rotate-180' : ''}`} />
+                    </button>
+                    {showUserMenu && <UserDropdown />}
+                  </div>
+                </>
+              ) : (
+                <button onClick={onShowLogin} className="text-black font-medium hover:text-gray-600 transition">
+                  {lang.signIn}
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Search Bar Component - Visible to everyone */}
-          <div className="hidden md:block flex-1 max-w-2xl mx-8 transition-all duration-500">
+          {/* Mobile Search Bar - Visible to everyone */}
+          <div className="md:hidden mt-2 pb-3">
             <SearchBar 
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
@@ -327,326 +600,53 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
             />
           </div>
 
-          {/* Desktop Right Section */}
-          <div className="hidden md:flex items-center space-x-6">
-            {/* Dynamic Navigation Links based on role */}
-            {getNavLinks().map((link, idx) => (
-              <Link
-                key={idx}
-                href={link.href}
-                className={`text-black hover:text-gray-600 transition font-medium flex items-center gap-1 ${link.highlight ? 'text-green-600 hover:text-green-700' : ''}`}
-              >
-                {link.icon && <link.icon className="w-4 h-4" />}
-                {link.label}
+          {/* Mobile Menu - Kept for compatibility */}
+          {isMenuOpen && (
+            <div className="md:hidden py-4 border-t border-gray-200 space-y-2">
+              <Link href="/" className="flex items-center gap-3 py-2 text-black hover:bg-gray-50 px-3 rounded-lg transition" onClick={() => setIsMenuOpen(false)}>
+                <Home className="w-5 h-5" /> {lang.home}
               </Link>
-            ))}
-            
-            {/* Language Toggle */}
-            <button
-              onClick={toggleLanguage}
-              className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-full hover:border-gray-500 hover:bg-gray-50 transition text-black"
-            >
-              <Globe className="w-4 h-4" />
-              <span className="text-sm">{language === "english" ? "EN" : "BN"}</span>
-            </button>
-            
-            {/* Show different content based on authentication */}
-            {isAuthenticated ? (
-              <>
-                {/* Message Box */}
-                <MessageBox />
-                
-                {/* Notification Bell - Only for logged in users */}
-                <NotificationBell />
-                
-                {/* User Menu with Active Status */}
-                <div className="relative" ref={userMenuRef}>
-                  <button
-                    onClick={() => setShowUserMenu(!showUserMenu)}
-                    className="flex items-center gap-2 group"
-                  >
-                    <div className="relative">
-                      {currentUser?.photoURL ? (
-                        <img 
-                          src={currentUser.photoURL} 
-                          alt="Avatar"
-                          className="w-8 h-8 rounded-full object-cover ring-2 ring-transparent group-hover:ring-gray-300 transition"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center text-white font-bold group-hover:from-gray-600 group-hover:to-gray-800 transition">
-                          {currentUser?.name?.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      {/* Online/Offline Status Dot */}
-                      <div className="absolute -bottom-0.5 -right-0.5">
-                        {isActive ? (
-                          <div className="w-3 h-3 bg-green-500 rounded-full ring-2 ring-white animate-pulse" />
-                        ) : (
-                          <div className="w-3 h-3 bg-red-500 rounded-full ring-2 ring-white flex items-center justify-center">
-                            <XCircle className="w-2 h-2 text-white" />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${showUserMenu ? 'rotate-180' : ''}`} />
-                  </button>
-
-                  {showUserMenu && (
-                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-2xl py-2 border border-gray-100 z-30">
-                      {/* Active Status Toggle Section */}
-                      <div className="px-4 py-3 border-b border-gray-100">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            {isActive ? (
-                              <CheckCircle className="w-4 h-4 text-green-500" />
-                            ) : (
-                              <XCircle className="w-4 h-4 text-red-500" />
-                            )}
-                            <span className="text-sm font-medium">
-                              {isActive ? lang.active : lang.inactive}
-                            </span>
-                          </div>
-                          <button
-                            onClick={toggleActiveStatus}
-                            disabled={updatingStatus}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                              isActive ? 'bg-green-600' : 'bg-gray-300'
-                            } ${updatingStatus ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          >
-                            <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                isActive ? 'translate-x-6' : 'translate-x-1'
-                              }`}
-                            />
-                          </button>
-                        </div>
-                        <p className="text-xs text-gray-400 mt-1.5">
-                          {isActive 
-                            ? "✓ You're visible to customers" 
-                            : "✗ You're hidden from customers"}
-                        </p>
-                      </div>
-
-                      {/* Dynamic User Menu Items */}
-                      {getUserMenuItems().map((item, idx) => {
-                        if (item.divider) {
-                          return <hr key={idx} className="my-1" />;
-                        }
-                        
-                        if (item.href) {
-                          return (
-                            <Link
-                              key={idx}
-                              href={item.href}
-                              className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
-                              onClick={() => setShowUserMenu(false)}
-                            >
-                              <item.icon className="w-4 h-4" />
-                              <span className="text-sm">{item.label}</span>
-                            </Link>
-                          );
-                        }
-                        
-                        return (
-                          <button
-                            key={idx}
-                            onClick={() => {
-                              item.onClick();
-                              setShowUserMenu(false);
-                            }}
-                            className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors ${
-                              item.danger 
-                                ? 'text-red-600 hover:bg-red-50' 
-                                : 'text-gray-700 hover:bg-gray-50 hover:text-black'
-                            }`}
-                          >
-                            <item.icon className="w-4 h-4" />
-                            <span className="text-sm">{item.label}</span>
-                          </button>
-                        );
-                      })}
-
-                      {/* Admin Dashboard Link - Only for admin users */}
-                      {isAdmin && (
-                        <>
-                          <hr className="my-1" />
-                          <Link
-                            href="/admin"
-                            className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
-                            onClick={() => setShowUserMenu(false)}
-                          >
-                            <Shield className="w-4 h-4" />
-                            <span className="text-sm">{lang.adminDashboard}</span>
-                          </Link>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : (
-              <button onClick={onShowLogin} className="text-black font-medium hover:text-gray-600 transition">
-                {lang.signIn}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Mobile Search Bar - Visible to everyone */}
-        <div className="md:hidden mt-2 pb-3">
-          <SearchBar 
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            isScrolled={isScrolled}
-            language={language}
-          />
-        </div>
-
-        {/* Mobile Menu */}
-        {isMenuOpen && (
-          <div className="md:hidden py-4 border-t border-gray-200 space-y-2">
-            <Link href="/" className="flex items-center gap-3 py-2 text-black hover:bg-gray-50 px-3 rounded-lg transition" onClick={() => setIsMenuOpen(false)}>
-              <Home className="w-5 h-5" /> {lang.home}
-            </Link>
-            
-            {/* Dynamic Mobile Navigation Links */}
-            {getNavLinks().map((link, idx) => (
-              <Link
-                key={idx}
-                href={link.href}
-                className={`flex items-center gap-3 py-2 hover:bg-gray-50 px-3 rounded-lg transition ${
-                  link.highlight ? 'text-green-600' : 'text-black'
-                }`}
-                onClick={() => setIsMenuOpen(false)}
-              >
-                {link.icon && <link.icon className="w-5 h-5" />}
-                {link.label}
-              </Link>
-            ))}
-            
-            {/* Language Toggle in Mobile */}
-            <button
-              onClick={toggleLanguage}
-              className="flex items-center gap-3 py-2 text-black hover:bg-gray-50 px-3 rounded-lg w-full transition"
-            >
-              <Globe className="w-5 h-5" />
-              <span>{language === "english" ? "English" : "বাংলা"}</span>
-            </button>
-            
-            {isAuthenticated ? (
-              <>
-                {/* Message Box in Mobile */}
-                <div className="px-3 py-2">
-                  <MessageBox />
-                </div>
-                
-                {/* Dashboard in Mobile */}
-                <button
-                  onClick={() => {
-                    handleDashboardClick();
-                    setIsMenuOpen(false);
-                  }}
-                  className="flex items-center gap-3 w-full text-left py-2 text-black hover:bg-gray-50 px-3 rounded-lg transition"
-                >
-                  <LayoutDashboard className="w-5 h-5" /> {lang.dashboard}
-                </button>
-                
-                {/* Active Status in Mobile */}
-                <div className="flex items-center justify-between py-2 px-3">
-                  <div className="flex items-center gap-2">
-                    {isActive ? (
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                    ) : (
-                      <XCircle className="w-4 h-4 text-red-500" />
-                    )}
-                    <span className="text-sm">{isActive ? lang.active : lang.inactive}</span>
-                  </div>
-                  <button
-                    onClick={toggleActiveStatus}
-                    disabled={updatingStatus}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      isActive ? 'bg-green-600' : 'bg-gray-300'
-                    } ${updatingStatus ? 'opacity-50' : ''}`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        isActive ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
-                </div>
-                
-                {/* Notification Bell in Mobile */}
-                <div className="px-3 py-2">
-                  <NotificationBell />
-                </div>
-                
-                {/* Refer Friend in Mobile */}
-                <button
-                  onClick={() => {
-                    handleReferFriend();
-                    setIsMenuOpen(false);
-                  }}
-                  className="flex items-center gap-3 w-full text-left py-2 text-black hover:bg-gray-50 px-3 rounded-lg transition"
-                >
-                  <Gift className="w-5 h-5" /> {lang.referFriend}
-                </button>
-                
-                {/* Settings in Mobile */}
+              {getNavLinks().map((link, idx) => (
                 <Link
-                  href="/settings"
-                  className="flex items-center gap-3 py-2 text-black hover:bg-gray-50 px-3 rounded-lg transition"
+                  key={idx}
+                  href={link.href}
+                  className={`flex items-center gap-3 py-2 hover:bg-gray-50 px-3 rounded-lg transition ${
+                    link.highlight ? 'text-green-600' : 'text-black'
+                  }`}
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  <Settings className="w-5 h-5" /> {lang.settings}
+                  {link.icon && <link.icon className="w-5 h-5" />}
+                  {link.label}
                 </Link>
-                
-                {/* Logout in Mobile */}
+              ))}
+              <button
+                onClick={toggleLanguage}
+                className="flex items-center gap-3 py-2 text-black hover:bg-gray-50 px-3 rounded-lg w-full transition"
+              >
+                <Globe className="w-5 h-5" />
+                <span>{language === "english" ? "English" : "বাংলা"}</span>
+              </button>
+              {!isAuthenticated && (
                 <button 
                   onClick={() => {
-                    handleLogoutClick();
+                    onShowLogin();
                     setIsMenuOpen(false);
                   }} 
-                  disabled={isLoggingOut}
-                  className="flex items-center gap-3 w-full text-left py-2 text-red-600 hover:bg-red-50 px-3 rounded-lg transition disabled:opacity-50"
+                  className="flex items-center gap-3 w-full text-left py-2 text-black hover:bg-gray-50 px-3 rounded-lg transition"
                 >
-                  {isLoggingOut ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
-                      <span>Logging out...</span>
-                    </>
-                  ) : (
-                    <>
-                      <LogOut className="w-5 h-5" /> {lang.logout}
-                    </>
-                  )}
+                  <User className="w-5 h-5" /> {lang.signIn}
                 </button>
-                
-                {/* Admin Dashboard in Mobile */}
-                {isAdmin && (
-                  <Link
-                    href="/admin"
-                    className="flex items-center gap-3 py-2 text-black hover:bg-gray-50 px-3 rounded-lg transition"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    <Shield className="w-5 h-5" /> {lang.adminDashboard}
-                  </Link>
-                )}
-              </>
-            ) : (
-              <button 
-                onClick={() => {
-                  onShowLogin();
-                  setIsMenuOpen(false);
-                }} 
-                className="flex items-center gap-3 w-full text-left py-2 text-black hover:bg-gray-50 px-3 rounded-lg transition"
-              >
-                <User className="w-5 h-5" /> {lang.signIn}
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-    </nav>
+              )}
+            </div>
+          )}
+        </div>
+      </nav>
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav />
+
+      {/* Padding to prevent content from hiding behind fixed bottom bar */}
+      <div className="pb-16 md:pb-0" />
+    </>
   );
 }
