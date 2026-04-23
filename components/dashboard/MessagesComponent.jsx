@@ -1,4 +1,3 @@
-// components/dashboard/MessagesComponent.jsx
 "use client";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { 
@@ -61,7 +60,7 @@ export default function MessagesComponent() {
   const unsubscribersRef = useRef([]);
   const isScrollingRef = useRef(false);
 
-  // Auto-select conversation from sessionStorage (when coming from MessageBox)
+  // Auto-select conversation from sessionStorage
   useEffect(() => {
     const activeConversationId = sessionStorage.getItem("activeConversationId");
     if (activeConversationId && conversations.length > 0) {
@@ -218,6 +217,7 @@ export default function MessagesComponent() {
     loadConversations();
   }, [currentUser]);
 
+  // Load messages for selected chat
   const loadMessages = useCallback(async (conversationId, isLoadMore = false) => {
     if (!conversationId) return;
     
@@ -240,7 +240,8 @@ export default function MessagesComponent() {
         msgs.unshift({
           id: docSnap.id,
           ...msgData,
-          timestamp: msgData.timestamp?.toDate?.() || new Date(msgData.timestamp)
+          timestamp: msgData.timestamp?.toDate?.() || new Date(msgData.timestamp),
+          text: msgData.text || msgData.message // Ensure text field exists
         });
         lastDoc = docSnap;
       });
@@ -269,8 +270,10 @@ export default function MessagesComponent() {
   useEffect(() => {
     if (!selectedChat || !selectedChat.id) return;
 
+    // Load initial messages
     loadMessages(selectedChat.id, false);
     
+    // Listen for new messages
     const messagesRef = collection(db, "conversations", selectedChat.id, "messages");
     const q = query(messagesRef, orderBy("timestamp", "asc"));
     
@@ -281,29 +284,38 @@ export default function MessagesComponent() {
           const newMsg = {
             id: change.doc.id,
             ...msgData,
-            timestamp: msgData.timestamp?.toDate?.() || new Date(msgData.timestamp)
+            timestamp: msgData.timestamp?.toDate?.() || new Date(msgData.timestamp),
+            text: msgData.text || msgData.message
           };
           
+          console.log("New message received:", newMsg);
+          
           setMessages(prev => {
+            // Prevent duplicates
             if (prev.some(m => m.id === newMsg.id)) return prev;
-            return [...prev, newMsg];
+            // Add new message
+            const updated = [...prev, newMsg];
+            // Sort by timestamp
+            updated.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            return updated;
           });
           
+          // Mark as read if not sender
           if (newMsg.senderId !== currentUser?.uid && selectedChat.id) {
             markMessagesAsRead(selectedChat.id);
           }
           
-          if (!isScrollingRef.current) {
-            setTimeout(() => {
-              messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-            }, 100);
-          }
+          // Scroll to bottom
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+          }, 100);
         }
       });
     });
     
     unsubscribersRef.current.push(unsubscribe);
     
+    // Mark all messages as read when chat opens
     if (selectedChat.id) {
       markMessagesAsRead(selectedChat.id);
     }
@@ -428,6 +440,9 @@ export default function MessagesComponent() {
         read: false,
         delivered: true,
       };
+      
+      console.log("Sending message:", messageData);
+      
       await addDoc(messagesRef, messageData);
 
       const conversationRef = doc(db, "conversations", selectedChat.id);
@@ -438,7 +453,7 @@ export default function MessagesComponent() {
       });
 
       if (notificationsEnabled) {
-        sendMessageNotification(currentUser.uid, selectedChat.name, messageText, selectedChat.id);
+        sendMessageNotification(selectedChat.userId, currentUser.name, messageText, selectedChat.id);
       }
     } catch (error) {
       console.error("Error sending message:", error);
@@ -490,6 +505,7 @@ export default function MessagesComponent() {
     setShowMobileMenu(false);
     setHasMoreMessages(true);
     setLastMessageDoc(null);
+    setMessages([]); // Clear messages when switching chat
   };
 
   const filteredConversations = useMemo(() => {
@@ -544,24 +560,6 @@ export default function MessagesComponent() {
       return { text: `Last seen ${formatLastSeen(status.lastSeen)}`, icon: null, color: "text-gray-400" };
     }
     return { text: "Offline", icon: null, color: "text-gray-400" };
-  };
-
-  // Render message with order link if present
-  const renderMessageContent = (msg) => {
-    if (msg.link) {
-      return (
-        <Link 
-          href={msg.link} 
-          className="inline-flex items-center gap-2 text-green-600 hover:text-green-700 underline mt-1 block"
-          target="_blank"
-        >
-          <Package className="w-3 h-3" />
-          View Order Details
-          <LinkIcon className="w-3 h-3" />
-        </Link>
-      );
-    }
-    return null;
   };
 
   if (loading) {
@@ -792,7 +790,7 @@ export default function MessagesComponent() {
                   <p className="text-sm text-gray-400 mt-1">Send a message to start the conversation</p>
                 </div>
               ) : (
-                messages.map((msg) => {
+                messages.map((msg, idx) => {
                   const isOwn = msg.senderId === currentUser?.uid;
                   const status = getMessageStatus(msg);
                   const StatusIcon = status?.icon;
@@ -800,7 +798,7 @@ export default function MessagesComponent() {
                   
                   return (
                     <div
-                      key={msg.id}
+                      key={msg.id || idx}
                       className={`flex ${isOwn ? "justify-end" : "justify-start"} animate-fadeIn`}
                     >
                       <div
@@ -812,7 +810,9 @@ export default function MessagesComponent() {
                               : "bg-white text-gray-800 shadow-sm border border-gray-100"
                         }`}
                       >
-                        <p className="text-sm break-words leading-relaxed whitespace-pre-wrap">{msg.message}</p>
+                        <p className="text-sm break-words leading-relaxed whitespace-pre-wrap">
+                          {msg.text || msg.message}
+                        </p>
                         {hasOrderLink && (
                           <Link 
                             href={msg.link} 

@@ -1,10 +1,20 @@
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 
-// ✅ GET - Get single order by orderId (Async params)
+// Build time এ error এড়ানোর জন্য
+export const dynamic = 'force-dynamic';
+
 export async function GET(request, { params }) {
   try {
-    // Next.js 15: params কে await করে নিতে হবে
+    // Check if MongoDB URI exists
+    if (!process.env.MONGODB_URI) {
+      console.error("❌ MONGODB_URI is not defined");
+      return NextResponse.json({ 
+        success: false, 
+        error: "Database configuration missing" 
+      }, { status: 500 });
+    }
+
     const { orderId } = await params;
     console.log("🔍 Fetching order:", orderId);
     
@@ -31,9 +41,15 @@ export async function GET(request, { params }) {
   }
 }
 
-// ✅ PUT - Update order status
 export async function PUT(request, { params }) {
   try {
+    if (!process.env.MONGODB_URI) {
+      return NextResponse.json({ 
+        success: false, 
+        error: "Database configuration missing" 
+      }, { status: 500 });
+    }
+
     const { orderId } = await params;
     const updates = await request.json();
     
@@ -70,9 +86,15 @@ export async function PUT(request, { params }) {
   }
 }
 
-// ✅ DELETE - Cancel order
 export async function DELETE(request, { params }) {
   try {
+    if (!process.env.MONGODB_URI) {
+      return NextResponse.json({ 
+        success: false, 
+        error: "Database configuration missing" 
+      }, { status: 500 });
+    }
+
     const { orderId } = await params;
     
     const client = await clientPromise;
