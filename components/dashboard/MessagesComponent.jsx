@@ -1,3 +1,4 @@
+// components/dashboard/MessagesComponent.jsx
 "use client";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { 
@@ -11,7 +12,9 @@ import {
   Video,
   MoreVertical,
   User,
-  XCircle
+  XCircle,
+  Package,
+  Link as LinkIcon
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebaseClient";
@@ -28,9 +31,11 @@ import {
   getDoc,
   writeBatch,
   setDoc,
-  limit
+  limit,
+  startAfter
 } from "firebase/firestore";
 import { sendMessageNotification, requestNotificationPermission } from "@/lib/notificationService";
+import Link from "next/link";
 
 export default function MessagesComponent() {
   const { currentUser } = useAuth();
@@ -56,16 +61,15 @@ export default function MessagesComponent() {
   const unsubscribersRef = useRef([]);
   const isScrollingRef = useRef(false);
 
-  // Auto-select conversation from localStorage (when coming from MessageBox)
+  // Auto-select conversation from sessionStorage (when coming from MessageBox)
   useEffect(() => {
-    const activeConversationId = localStorage.getItem("activeConversationId");
+    const activeConversationId = sessionStorage.getItem("activeConversationId");
     if (activeConversationId && conversations.length > 0) {
       const activeConv = conversations.find(c => c.id === activeConversationId);
       if (activeConv) {
         setSelectedChat(activeConv);
         setShowMobileMenu(false);
-        // Clear the stored ID after use
-        localStorage.removeItem("activeConversationId");
+        sessionStorage.removeItem("activeConversationId");
       }
     }
   }, [conversations]);
@@ -101,8 +105,7 @@ export default function MessagesComponent() {
       const userRef = doc(db, "users", currentUser.uid);
       await updateDoc(userRef, {
         isOnline: isOnline,
-        lastSeen: new Date().toISOString(),
-        isActive: isOnline
+        lastSeen: new Date().toISOString()
       });
     } catch (error) {
       console.error("Error updating online status:", error);
@@ -215,7 +218,6 @@ export default function MessagesComponent() {
     loadConversations();
   }, [currentUser]);
 
-  // Load messages with pagination
   const loadMessages = useCallback(async (conversationId, isLoadMore = false) => {
     if (!conversationId) return;
     
@@ -349,7 +351,6 @@ export default function MessagesComponent() {
     return () => unsubscribe();
   }, [selectedChat]);
 
-  // Handle scroll to load more messages
   const handleScroll = useCallback(async (e) => {
     const container = e.target;
     if (container.scrollTop === 0 && !loadingMore && hasMoreMessages && selectedChat) {
@@ -543,6 +544,24 @@ export default function MessagesComponent() {
       return { text: `Last seen ${formatLastSeen(status.lastSeen)}`, icon: null, color: "text-gray-400" };
     }
     return { text: "Offline", icon: null, color: "text-gray-400" };
+  };
+
+  // Render message with order link if present
+  const renderMessageContent = (msg) => {
+    if (msg.link) {
+      return (
+        <Link 
+          href={msg.link} 
+          className="inline-flex items-center gap-2 text-green-600 hover:text-green-700 underline mt-1 block"
+          target="_blank"
+        >
+          <Package className="w-3 h-3" />
+          View Order Details
+          <LinkIcon className="w-3 h-3" />
+        </Link>
+      );
+    }
+    return null;
   };
 
   if (loading) {
@@ -777,6 +796,7 @@ export default function MessagesComponent() {
                   const isOwn = msg.senderId === currentUser?.uid;
                   const status = getMessageStatus(msg);
                   const StatusIcon = status?.icon;
+                  const hasOrderLink = msg.link && msg.type !== "customer_message";
                   
                   return (
                     <div
@@ -787,10 +807,23 @@ export default function MessagesComponent() {
                         className={`max-w-[75%] rounded-2xl px-4 py-2.5 ${
                           isOwn
                             ? "bg-green-600 text-white"
-                            : "bg-white text-gray-800 shadow-sm border border-gray-100"
+                            : msg.type === "order_placed" || msg.type === "new_order"
+                              ? "bg-blue-50 text-gray-800 border border-blue-200"
+                              : "bg-white text-gray-800 shadow-sm border border-gray-100"
                         }`}
                       >
-                        <p className="text-sm break-words leading-relaxed">{msg.text}</p>
+                        <p className="text-sm break-words leading-relaxed whitespace-pre-wrap">{msg.message}</p>
+                        {hasOrderLink && (
+                          <Link 
+                            href={msg.link} 
+                            className="inline-flex items-center gap-2 text-green-600 hover:text-green-700 underline mt-2 text-xs font-medium"
+                            target="_blank"
+                          >
+                            <Package className="w-3 h-3" />
+                            View Order Details
+                            <LinkIcon className="w-3 h-3" />
+                          </Link>
+                        )}
                         <div className={`text-xs mt-1.5 flex items-center gap-1 justify-end ${isOwn ? "text-green-100" : "text-gray-400"}`}>
                           <span>
                             {msg.timestamp?.toLocaleTimeString?.([], { hour: '2-digit', minute: '2-digit' }) || 

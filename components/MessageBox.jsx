@@ -113,8 +113,8 @@ export default function MessageBox() {
   // Directly open specific conversation in dashboard messages tab
   const handleOpenConversation = (conversationId) => {
     setIsOpen(false);
-    // Store the conversation ID in localStorage to auto-select it in the messages component
-    localStorage.setItem("activeConversationId", conversationId);
+    // ✅ FIXED: Use sessionStorage (matches MessagesComponent)
+    sessionStorage.setItem("activeConversationId", conversationId);
     // Navigate to dashboard messages tab
     router.push("/dashboard?tab=messages");
   };

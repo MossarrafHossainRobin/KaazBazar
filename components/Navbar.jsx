@@ -236,7 +236,7 @@ export default function Navbar({ searchQuery, setSearchQuery, onShowLogin }) {
     if (isProvider) {
       return [
         { label: lang.myServices, href: "/provider/services", icon: Package },
-        { label: lang.orders, href: "/provider/orders", icon: ShoppingBag },
+        { label: lang.orders, href: "/my-orders", icon: ShoppingBag },
         { label: lang.earnings, href: "/provider/earnings", icon: DollarSign }
       ];
     }
