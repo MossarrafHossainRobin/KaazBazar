@@ -3,10 +3,10 @@ import { useAuth } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { 
   Package, Clock, CheckCircle, XCircle, Eye, Search, 
-  Calendar, MapPin, Phone, MessageCircle, User, Store, Trash2
+  Calendar, MapPin, MessageCircle, User, Store, Trash2
 } from "lucide-react";
 
 export default function MyOrdersPage() {
@@ -17,57 +17,32 @@ export default function MyOrdersPage() {
   const [activeTab, setActiveTab] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [cancellingId, setCancellingId] = useState(null);
-  const [error, setError] = useState(null);
-  
-  const pollingRef = useRef(null);
-  const isMountedRef = useRef(true);
+  const [initialFetchDone, setInitialFetchDone] = useState(false);
 
-  // Fetch all orders for the user
+  // Fetch orders directly from MongoDB - Fast & Real-time
   const fetchOrders = useCallback(async () => {
-    if (!currentUser || !isMountedRef.current) return;
+    if (!currentUser) return;
     
     try {
       const response = await fetch(`/api/mongo/orders/user/${currentUser.uid}`);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      
       const result = await response.json();
       
-      if (result.success && isMountedRef.current) {
+      if (result.success) {
         setOrders(result.data || []);
-        setError(null);
-      } else {
-        setError(result.error || "Failed to fetch orders");
+        setLoading(false);
+        setInitialFetchDone(true);
       }
     } catch (error) {
       console.error("Error fetching orders:", error);
-      setError("Failed to load orders");
-    } finally {
-      if (isMountedRef.current) {
-        setLoading(false);
-      }
+      setLoading(false);
+      setInitialFetchDone(true);
     }
   }, [currentUser]);
 
-  // Initial fetch and polling
+  // Fetch immediately when component mounts
   useEffect(() => {
     if (currentUser) {
       fetchOrders();
-      
-      pollingRef.current = setInterval(() => {
-        if (isMountedRef.current) {
-          fetchOrders();
-        }
-      }, 5000);
-      
-      return () => {
-        isMountedRef.current = false;
-        if (pollingRef.current) {
-          clearInterval(pollingRef.current);
-        }
-      };
     }
   }, [currentUser, fetchOrders]);
 
@@ -88,9 +63,10 @@ export default function MyOrdersPage() {
       const result = await response.json();
       
       if (result.success) {
+        // Update local state immediately
         setOrders(prevOrders => 
           prevOrders.map(order => 
-            (order.orderId === orderId)
+            order.orderId === orderId
               ? { ...order, status: "cancelled" }
               : order
           )
@@ -139,17 +115,15 @@ export default function MyOrdersPage() {
     return matchesTab && matchesSearch;
   });
 
-  if (authLoading || loading) {
+  // Auth loading state
+  if (authLoading) {
     return (
       <div className="min-h-screen flex flex-col bg-gray-50">
-        <Navbar 
-          searchQuery={searchTerm}
-          setSearchQuery={setSearchTerm}
-        />
+        <Navbar />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <div className="w-12 h-12 border-2 border-green-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-            <p className="text-gray-500 text-sm">Loading orders...</p>
+            <p className="text-gray-500 text-sm">Loading...</p>
           </div>
         </div>
         <Footer />
@@ -180,19 +154,6 @@ export default function MyOrdersPage() {
             </p>
           </div>
 
-          {/* Error Message */}
-          {error && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-              <p>{error}</p>
-              <button
-                onClick={() => fetchOrders()}
-                className="mt-2 text-red-700 underline"
-              >
-                Try again
-              </button>
-            </div>
-          )}
-
           {/* Search Bar */}
           <div className="mb-6">
             <div className="relative max-w-md">
@@ -207,25 +168,34 @@ export default function MyOrdersPage() {
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="flex flex-wrap border-b border-gray-200 mb-6 gap-1 overflow-x-auto">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2.5 text-sm font-medium transition-all duration-200 whitespace-nowrap ${
-                  activeTab === tab.id 
-                    ? "text-green-600 border-b-2 border-green-600" 
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                {tab.label} ({tab.count})
-              </button>
-            ))}
-          </div>
+          {/* Loading State - Only shown on first load */}
+          {loading && !initialFetchDone && (
+            <div className="flex justify-center py-12">
+              <div className="w-8 h-8 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          )}
+
+          {/* Tabs - Shown only after initial fetch */}
+          {initialFetchDone && (
+            <div className="flex flex-wrap border-b border-gray-200 mb-6 gap-1 overflow-x-auto">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-4 py-2.5 text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                    activeTab === tab.id 
+                      ? "text-green-600 border-b-2 border-green-600" 
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {tab.label} ({tab.count})
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Orders List */}
-          {filteredOrders.length === 0 ? (
+          {initialFetchDone && filteredOrders.length === 0 && (
             <div className="bg-white rounded-xl shadow-sm p-12 text-center">
               <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-xl font-medium text-gray-800 mb-2">No orders found</h3>
@@ -239,7 +209,9 @@ export default function MyOrdersPage() {
                 Browse Services
               </button>
             </div>
-          ) : (
+          )}
+
+          {initialFetchDone && filteredOrders.length > 0 && (
             <div className="space-y-4">
               {filteredOrders.map((order) => {
                 const status = getStatusBadge(order.status);
@@ -375,15 +347,6 @@ export default function MyOrdersPage() {
                           <MessageCircle className="w-4 h-4" />
                           Message
                         </button>
-                        {!isCustomer && order.customerPhone && (
-                          <a
-                            href={`tel:${order.customerPhone}`}
-                            className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-green-600 transition"
-                          >
-                            <Phone className="w-4 h-4" />
-                            Call
-                          </a>
-                        )}
                       </div>
                     </div>
                   </div>
