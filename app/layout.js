@@ -6,7 +6,7 @@ import ClientProviders from "@/components/ClientProviders";
 import "./globals.css";
 
 export const metadata = {
-  title: "Kaazbazar - Local Service Marketplace",
+  title: "Kaazbazar - Local Service Marketplace For Your Needs",
   description: "Connect with local service providers in your area",
 };
 
