@@ -1,13 +1,15 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";  // ✅ এভাবেই হবে
 import { useAuth } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { 
-  Clock, MapPin, Phone, MessageCircle, CheckCircle,
-  Package, Truck, Home, AlertCircle, ChevronLeft, Calendar, User
+  Clock, MapPin, MessageCircle, CheckCircle,
+  Package, Truck, Home, AlertCircle, ChevronLeft, Calendar
 } from "lucide-react";
+import { collection, query, where, getDocs, doc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebaseClient";
 
 export default function OrderTrackingPage() {
   const { id } = useParams();
@@ -31,18 +33,13 @@ export default function OrderTrackingPage() {
   const fetchOrder = async () => {
     if (!id) return;
     
-    setLoading(true);
-    setError(null);
-    
     try {
-      console.log("Fetching order:", id);
       const response = await fetch(`/api/mongo/orders/${id}`);
       const result = await response.json();
       
-      console.log("API Response:", result);
-      
       if (result.success) {
         setOrder(result.data);
+        setError(null);
       } else {
         setError(result.error || "Order not found");
       }
@@ -54,9 +51,82 @@ export default function OrderTrackingPage() {
     }
   };
 
+  // ✅ Find and open correct conversation
+  const openDirectMessage = async () => {
+    if (!order || !currentUser) return;
+    
+    try {
+      // Calculate expected conversation ID pattern
+      const expectedId1 = `${currentUser.uid}_${order.providerId}`;
+      const expectedId2 = `${order.providerId}_${currentUser.uid}`;
+      
+      // Query Firestore to find the conversation
+      const conversationsRef = collection(db, "conversations");
+      const q = query(
+        conversationsRef,
+        where("participants", "array-contains", currentUser.uid)
+      );
+      
+      const snapshot = await getDocs(q);
+      let foundConversationId = null;
+      
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const participants = data.participants || [];
+        
+        // Check if both participants are in this conversation
+        if (participants.includes(currentUser.uid) && participants.includes(order.providerId)) {
+          foundConversationId = docSnap.id;
+        }
+      });
+      
+      if (foundConversationId) {
+        // Conversation exists, use its ID
+        sessionStorage.setItem("activeConversationId", foundConversationId);
+      } else {
+        // No conversation yet, create one with expected ID
+        const newConversationId = expectedId1;
+        
+        // Create conversation document in Firestore
+        const conversationRef = doc(db, "conversations", newConversationId);
+        await setDoc(conversationRef, {
+          participants: [currentUser.uid, order.providerId],
+          participantNames: {
+            [currentUser.uid]: currentUser.name,
+            [order.providerId]: order.providerName
+          },
+          lastMessage: "Start your conversation here",
+          lastMessageTime: new Date(),
+          createdAt: new Date(),
+          unreadCount: {
+            [currentUser.uid]: 0,
+            [order.providerId]: 0
+          }
+        });
+        
+        sessionStorage.setItem("activeConversationId", newConversationId);
+      }
+      
+      // Navigate to messages tab
+      router.push("/dashboard?tab=messages");
+      
+    } catch (error) {
+      console.error("Error opening conversation:", error);
+      // Fallback: just go to messages without auto-select
+      router.push("/dashboard?tab=messages");
+    }
+  };
+
+  // Initial load and refresh every 5 seconds
   useEffect(() => {
     if (id) {
       fetchOrder();
+      const interval = setInterval(() => {
+        if (order?.status !== "completed" && order?.status !== "cancelled") {
+          fetchOrder();
+        }
+      }, 5000);
+      return () => clearInterval(interval);
     }
   }, [id]);
 
@@ -71,7 +141,7 @@ export default function OrderTrackingPage() {
         if (diff <= 0) {
           setTimeLeft({ minutes: 0, seconds: 0 });
           clearInterval(timer);
-          fetchOrder(); // Refresh to get updated status
+          fetchOrder(); 
         } else {
           const minutes = Math.floor(diff / (1000 * 60));
           const seconds = Math.floor((diff % 60000) / 1000);
@@ -135,7 +205,7 @@ export default function OrderTrackingPage() {
     return statuses.findIndex(s => s.key === order?.status);
   };
 
-  // Show loading state
+  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col bg-gray-50">
@@ -151,7 +221,7 @@ export default function OrderTrackingPage() {
     );
   }
 
-  // Show error state
+  // Error state
   if (error) {
     return (
       <div className="min-h-screen flex flex-col bg-gray-50">
@@ -327,24 +397,14 @@ export default function OrderTrackingPage() {
                 <p className="text-gray-600 text-sm">{order.address}</p>
               </div>
 
-              {/* Contact Provider */}
+              {/* Contact Provider - Now works correctly */}
               <div className="bg-white rounded-xl shadow-sm p-6">
                 <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-                  <Phone className="w-5 h-5 text-gray-500" />
+                  <MessageCircle className="w-5 h-5 text-gray-500" />
                   Contact Provider
                 </h2>
-                {order.providerPhone ? (
-                  <a href={`tel:${order.providerPhone}`} className="text-green-600 hover:text-green-700">
-                    {order.providerPhone}
-                  </a>
-                ) : (
-                  <p className="text-gray-500 text-sm">No phone number available</p>
-                )}
                 <button
-                  onClick={() => {
-                    const conversationId = `${currentUser?.uid}_${order.providerId}`;
-                    router.push(`/messages/${conversationId}?orderId=${order.orderId}`);
-                  }}
+                  onClick={openDirectMessage}
                   className="mt-3 w-full flex items-center justify-center gap-2 py-2 border border-gray-200 rounded-lg text-gray-600 hover:border-green-600 hover:text-green-600 transition"
                 >
                   <MessageCircle className="w-4 h-4" />
