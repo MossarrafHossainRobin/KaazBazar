@@ -138,7 +138,7 @@ export default function ServiceCategoryPage() {
   // Toggle save item
   const toggleSaveItem = async (providerId) => {
     if (!currentUser) {
-      router.push("/login");
+      router.push("/Login");
       return;
     }
 
@@ -326,7 +326,7 @@ export default function ServiceCategoryPage() {
 
   const handleChat = async (provider) => {
     if (!currentUser) {
-      router.push("/login");
+      router.push("/Login");
       return;
     }
     
@@ -361,7 +361,7 @@ export default function ServiceCategoryPage() {
 
   const handleBookNow = (provider) => {
     if (!currentUser) {
-      router.push("/login");
+      router.push("/Login");n
       return;
     }
     router.push(`/booking/${provider.id}`);
