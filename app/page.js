@@ -3,7 +3,6 @@ import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ServicesPage from "@/components/ServicesPage";
-import CategoryFilters from "@/components/CategoryFilters";
 import ServiceCards from "@/components/ServiceCards";
 import LoginModal from "@/components/LoginModal";
 import HeroSection from "@/components/HeroSection";
@@ -14,7 +13,6 @@ import { useAuth } from "@/context/AuthContext";
 export default function Home() {
   const { currentUser, loading, logout, isAuthenticated } = useAuth();
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleLogin = (userData) => {
@@ -54,26 +52,17 @@ export default function Home() {
 
         {/* Service Cards - visible to everyone */}
         <ServiceCards />
-
-        <div className="container mx-auto px-4 py-6">
-          <CategoryFilters 
-            selectedCategory={selectedCategory}
-            onCategoryChange={setSelectedCategory}
-          />
-        </div>
         
         <div className="container mx-auto px-4 pb-16">
           <div className="flex justify-between items-center mb-5">
             <h2 className="text-xl font-bold text-black">
               {currentUser ? "Recommended for you" : "Popular services near you"}
             </h2>
-            <button className="text-gray-600 hover:text-black font-medium text-sm">
-              View all →
-            </button>
+        
           </div>
           
           <ServicesPage 
-            selectedCategory={selectedCategory}
+            selectedCategory="all"
             currentUser={currentUser}
             onShowLogin={() => setShowLoginModal(true)}
             searchQuery={searchQuery}
