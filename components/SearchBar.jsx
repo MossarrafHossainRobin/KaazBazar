@@ -189,6 +189,9 @@ const popularSearches = [
 ];
 
 export default function SearchBar({ searchQuery, setSearchQuery, onSearch, isScrolled, language }) {
+  // ✅ ONLY ADDED THIS LINE: Ensure searchQuery is always a string to prevent .trim() error
+  searchQuery = searchQuery || '';
+
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
