@@ -193,3 +193,26 @@
 .max-h-96::-webkit-scrollbar-thumb:hover {
   background: #059669;
 }
+
+/* ========== SCROLLBAR HIDE ========== */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ========== SCROLLBAR HIDE ========== */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ========== SAFE AREA BOTTOM ========== */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
