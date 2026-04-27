@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { 
   Star, 
@@ -15,7 +16,9 @@ import {
   Circle,
   XCircle,
   Heart,
-  Search
+  Search,
+  Navigation,
+  Crosshair
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
@@ -33,6 +36,16 @@ import {
   query,
   where
 } from "firebase/firestore";
+
+// Dynamically import MapComponent with no SSR
+const MapComponent = dynamic(() => import("@/components/MapComponent"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-96 w-full rounded-2xl bg-gray-100 animate-pulse flex items-center justify-center">
+      <div className="text-gray-400">Loading map...</div>
+    </div>
+  )
+});
 
 const categories = [
   { id: "all", name: "All", slug: "all" },
@@ -52,6 +65,21 @@ const ITEMS_PER_PAGE = 12;
 const userProfileCache = new Map();
 const ratingsCache = new Map();
 
+// Haversine formula to calculate distance between two coordinates in km
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return Infinity;
+  
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 export default function ServiceCategoryPage() {
   const params = useParams();
   const router = useRouter();
@@ -63,12 +91,21 @@ export default function ServiceCategoryPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [savedItems, setSavedItems] = useState(new Set());
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // Location states
+  const [userLocation, setUserLocation] = useState(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState("");
+  const [showMap, setShowMap] = useState(false);
+  
   const [filters, setFilters] = useState({
     minPrice: 0,
     maxPrice: 2000,
     minRating: 0,
     sortBy: "rating",
-    city: ""
+    city: "",
+    nearYou: false,
+    maxDistance: 10 // km
   });
   
   const categorySlug = params?.category || "all";
@@ -81,6 +118,42 @@ export default function ServiceCategoryPage() {
   const handleSearchChange = (e) => {
     const value = e.target.value || "";
     setSearchTerm(value);
+  };
+
+  // Get user's current location
+  const getUserLocation = useCallback(() => {
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      setLocationError("Geolocation not supported");
+      return;
+    }
+
+    setLocationLoading(true);
+    setLocationError("");
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const location = [pos.coords.latitude, pos.coords.longitude];
+        setUserLocation(location);
+        setLocationLoading(false);
+        // Auto-enable "Near You" filter when location is obtained
+        setFilters(prev => ({ ...prev, nearYou: true }));
+      },
+      (err) => {
+        console.error("Geolocation error:", err);
+        setLocationError("Unable to fetch your location. Please enable location access.");
+        setLocationLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+    );
+  }, []);
+
+  // Toggle "Near You" filter
+  const toggleNearYou = () => {
+    if (!userLocation) {
+      getUserLocation();
+      return;
+    }
+    setFilters(prev => ({ ...prev, nearYou: !prev.nearYou }));
   };
 
   // Fetch real ratings for a provider
@@ -192,15 +265,17 @@ export default function ServiceCategoryPage() {
           isActive: userData.isActive !== false,
           photoURL: userData.photoURL,
           phone: userData.phone,
-          name: userData.name
+          name: userData.name,
+          latitude: userData.latitude || null,
+          longitude: userData.longitude || null
         };
         userProfileCache.set(userId, profile);
         return profile;
       }
-      return { isActive: true };
+      return { isActive: true, latitude: null, longitude: null };
     } catch (error) {
       console.error("Error fetching user profile:", error);
-      return { isActive: true };
+      return { isActive: true, latitude: null, longitude: null };
     }
   }, []);
 
@@ -220,6 +295,8 @@ export default function ServiceCategoryPage() {
                 isActive: userProfile.isActive,
                 userPhoto: userProfile.photoURL,
                 userPhone: userProfile.phone,
+                latitude: userProfile.latitude || provider.latitude || null,
+                longitude: userProfile.longitude || provider.longitude || null,
                 rating: ratings.rating,
                 reviewCount: ratings.reviewCount
               };
@@ -238,7 +315,7 @@ export default function ServiceCategoryPage() {
     fetchData();
   }, [fetchUserProfile]);
 
-  // Apply filters with search
+  // Apply filters with search and location
   const applyFilters = useCallback((providersData = providers) => {
     let filtered = [...providersData];
     
@@ -259,6 +336,26 @@ export default function ServiceCategoryPage() {
       );
     }
     
+    // Near You filter - calculate distances
+    if (filters.nearYou && userLocation) {
+      filtered = filtered.filter(p => {
+        const distance = calculateDistance(
+          userLocation[0], userLocation[1],
+          p.latitude, p.longitude
+        );
+        return distance <= filters.maxDistance;
+      });
+      
+      // Add distance property to each provider for display
+      filtered = filtered.map(p => ({
+        ...p,
+        distance: calculateDistance(
+          userLocation[0], userLocation[1],
+          p.latitude, p.longitude
+        )
+      }));
+    }
+    
     // Price filter
     filtered = filtered.filter(p => 
       (p.hourlyRate || 500) >= filters.minPrice && 
@@ -277,6 +374,13 @@ export default function ServiceCategoryPage() {
     
     // Sorting
     switch(filters.sortBy) {
+      case "nearest":
+        if (filters.nearYou && userLocation) {
+          filtered.sort((a, b) => (a.distance || Infinity) - (b.distance || Infinity));
+        } else {
+          filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        }
+        break;
       case "rating":
         filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
         break;
@@ -295,14 +399,14 @@ export default function ServiceCategoryPage() {
     
     setFilteredProviders(filtered);
     setCurrentPage(1);
-  }, [providers, categorySlug, searchTerm, filters]);
+  }, [providers, categorySlug, searchTerm, filters, userLocation]);
 
   // Apply filters when dependencies change
   useEffect(() => {
     if (!loading && providers.length > 0) {
       applyFilters();
     }
-  }, [searchTerm, filters, categorySlug, providers.length, loading, applyFilters]);
+  }, [searchTerm, filters, categorySlug, providers.length, loading, applyFilters, userLocation]);
 
   const handleCategoryChange = (slug) => {
     router.push(`/services/${slug}`);
@@ -319,10 +423,23 @@ export default function ServiceCategoryPage() {
       maxPrice: 2000,
       minRating: 0,
       sortBy: "rating",
-      city: ""
+      city: "",
+      nearYou: false,
+      maxDistance: 10
     });
     setSearchTerm("");
+    setUserLocation(null);
+    setLocationError("");
   };
+
+  // Update sortBy when nearYou is toggled
+  useEffect(() => {
+    if (filters.nearYou && userLocation) {
+      setFilters(prev => ({ ...prev, sortBy: "nearest" }));
+    } else if (filters.sortBy === "nearest") {
+      setFilters(prev => ({ ...prev, sortBy: "rating" }));
+    }
+  }, [filters.nearYou, userLocation]);
 
   const handleChat = async (provider) => {
     if (!currentUser) {
@@ -361,7 +478,7 @@ export default function ServiceCategoryPage() {
 
   const handleBookNow = (provider) => {
     if (!currentUser) {
-      router.push("/Login");n
+      router.push("/Login");
       return;
     }
     router.push(`/booking/${provider.id}`);
@@ -421,7 +538,43 @@ export default function ServiceCategoryPage() {
                   Find the best professionals in your area
                 </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                {/* Near You Button */}
+                <button
+                  onClick={toggleNearYou}
+                  disabled={locationLoading}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full shadow-sm transition-all duration-200 text-sm ${
+                    filters.nearYou && userLocation
+                      ? "bg-green-600 text-white hover:bg-green-700"
+                      : "bg-white text-gray-700 hover:shadow-md hover:bg-gray-50"
+                  } ${locationLoading ? "opacity-50 cursor-wait" : ""}`}
+                >
+                  {locationLoading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      <span>Locating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Crosshair className={`w-4 h-4 ${filters.nearYou && userLocation ? "text-white" : "text-green-600"}`} />
+                      <span>{filters.nearYou && userLocation ? "Near You ✓" : "Near You"}</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Map Toggle Button */}
+                <button
+                  onClick={() => setShowMap(!showMap)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full shadow-sm transition-all duration-200 text-sm ${
+                    showMap
+                      ? "bg-blue-600 text-white hover:bg-blue-700"
+                      : "bg-white text-gray-700 hover:shadow-md hover:bg-gray-50"
+                  }`}
+                >
+                  <MapPin className="w-4 h-4" />
+                  <span>{showMap ? "Hide Map" : "Show Map"}</span>
+                </button>
+
                 <div className="flex items-center gap-2 text-sm text-gray-500 bg-white px-3 py-2 rounded-full shadow-sm">
                   <Users className="w-4 h-4" />
                   <span>{filteredProviders.length} Providers</span>
@@ -436,6 +589,54 @@ export default function ServiceCategoryPage() {
               </div>
             </div>
           </div>
+
+          {/* Map Section - Collapsible */}
+          {showMap && (
+            <div className="mb-6 animate-fade-in">
+              <div className="bg-white rounded-2xl shadow-md overflow-hidden border border-gray-100">
+                <div className="p-3 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <Navigation className="w-4 h-4 text-green-600" />
+                    <span className="text-sm font-medium text-gray-700">
+                      {userLocation 
+                        ? "Your Location & Nearby Providers" 
+                        : "Enable location to see nearby providers"}
+                    </span>
+                  </div>
+                  {!userLocation && (
+                    <button
+                      onClick={getUserLocation}
+                      disabled={locationLoading}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 transition disabled:opacity-50"
+                    >
+                      <Crosshair className="w-3 h-3" />
+                      {locationLoading ? "Detecting..." : "Detect My Location"}
+                    </button>
+                  )}
+                </div>
+                <MapComponent 
+                  userLocation={userLocation}
+                  providers={filters.nearYou ? filteredProviders : []}
+                />
+                {locationError && (
+                  <div className="p-3 bg-red-50 border-t border-red-100">
+                    <p className="text-sm text-red-600 flex items-center gap-2">
+                      <X className="w-4 h-4" />
+                      {locationError}
+                    </p>
+                  </div>
+                )}
+                {filters.nearYou && userLocation && (
+                  <div className="p-3 bg-green-50 border-t border-green-100">
+                    <p className="text-sm text-green-700 flex items-center gap-2">
+                      <Circle className="w-3 h-3 fill-green-500 text-green-500 animate-pulse" />
+                      Showing providers within {filters.maxDistance}km of your location
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Search Bar */}
           <div className="mb-6">
@@ -452,12 +653,12 @@ export default function ServiceCategoryPage() {
           </div>
 
           {/* Category Filters */}
-          <div className="flex flex-wrap justify-center gap-2 mb-6 pb-4 border-b border-gray-100">
+          <div className="flex flex-wrap justify-center gap-2 mb-6 pb-4 border-b border-gray-100 overflow-x-auto">
             {categories.map((category) => (
               <button
                 key={category.id}
                 onClick={() => handleCategoryChange(category.slug)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap ${
                   categorySlug === category.slug
                     ? "bg-green-600 text-white shadow-md"
                     : "bg-white text-gray-600 hover:bg-gray-100 shadow-sm"
@@ -527,6 +728,9 @@ export default function ServiceCategoryPage() {
                     onChange={(e) => setFilters({...filters, sortBy: e.target.value})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   >
+                    {filters.nearYou && userLocation && (
+                      <option value="nearest">Nearest First</option>
+                    )}
                     <option value="rating">Top Rated</option>
                     <option value="price_low">Price: Low to High</option>
                     <option value="price_high">Price: High to Low</option>
@@ -534,6 +738,29 @@ export default function ServiceCategoryPage() {
                   </select>
                 </div>
               </div>
+
+              {/* Distance Slider - Only shown when Near You is active */}
+              {filters.nearYou && userLocation && (
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Maximum Distance: <span className="text-green-600 font-bold">{filters.maxDistance} km</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="50"
+                    step="1"
+                    value={filters.maxDistance}
+                    onChange={(e) => setFilters({...filters, maxDistance: parseInt(e.target.value)})}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-green-600"
+                  />
+                  <div className="flex justify-between text-xs text-gray-400 mt-1">
+                    <span>1 km</span>
+                    <span>50 km</span>
+                  </div>
+                </div>
+              )}
+
               <div className="mt-4 flex justify-end gap-2">
                 <button onClick={resetFilters} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">Reset Filters</button>
                 <button onClick={() => setFilterOpen(false)} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700">Apply Filters</button>
@@ -545,6 +772,9 @@ export default function ServiceCategoryPage() {
           <div className="mb-5 flex justify-between items-center flex-wrap gap-2">
             <p className="text-sm text-gray-500">
               <span className="font-semibold text-green-600">{filteredProviders.length}</span> professionals available
+              {filters.nearYou && userLocation && (
+                <span className="text-gray-400 ml-1">near you</span>
+              )}
             </p>
             {filteredProviders.length > 0 && (
               <p className="text-xs text-gray-400">Page {currentPage} of {totalPages}</p>
@@ -556,7 +786,11 @@ export default function ServiceCategoryPage() {
             <div className="bg-white rounded-2xl shadow-sm p-12 text-center">
               <div className="text-6xl mb-4">🔍</div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">No professionals found</h3>
-              <p className="text-gray-500">Try adjusting your filters or search term</p>
+              <p className="text-gray-500">
+                {filters.nearYou 
+                  ? "No providers found near your location. Try increasing the distance or disabling Near You." 
+                  : "Try adjusting your filters or search term"}
+              </p>
               <button onClick={resetFilters} className="mt-4 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Clear Filters</button>
             </div>
           ) : (
@@ -574,6 +808,17 @@ export default function ServiceCategoryPage() {
                         >
                           <Heart className={`w-4 h-4 ${isSaved ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
                         </button>
+                        {/* Distance Badge - Only shown when Near You is active */}
+                        {filters.nearYou && userLocation && provider.distance !== undefined && (
+                          <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1 shadow-sm">
+                            <Navigation className="w-3 h-3 text-green-600" />
+                            <span className="text-xs font-semibold text-gray-700">
+                              {provider.distance < 1 
+                                ? `${(provider.distance * 1000).toFixed(0)}m` 
+                                : `${provider.distance.toFixed(1)}km`}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Profile Image */}
@@ -628,6 +873,7 @@ export default function ServiceCategoryPage() {
                         <div className="mb-4">
                           <div className="flex items-baseline gap-1">
                             <span className="text-2xl font-bold text-green-600">৳{provider.hourlyRate || 500}</span>
+                            <span className="text-xs text-gray-400">/hr</span>
                           </div>
                         </div>
 
@@ -732,6 +978,17 @@ export default function ServiceCategoryPage() {
         </div>
       </main>
       <Footer />
+      
+      {/* Add fade-in animation */}
+      <style jsx global>{`
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(-8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+          animation: fade-in 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 }
