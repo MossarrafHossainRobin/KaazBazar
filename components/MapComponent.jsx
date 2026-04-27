@@ -5,48 +5,86 @@ import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from "react-le
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
-// Fix default Leaflet icon
+// ========== FIX: Create custom SVG-based markers (no external assets needed) ==========
+
+// User location marker (Red)
+const userLocationIcon = L.divIcon({
+  className: 'custom-user-marker',
+  html: `
+    <div style="position: relative; display: flex; align-items: center; justify-content: center;">
+      <svg width="32" height="44" viewBox="0 0 32 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Pin shadow -->
+        <ellipse cx="15" cy="41" rx="8" ry="2.5" fill="rgba(0,0,0,0.15)"/>
+        <!-- Pin body -->
+        <path d="M15.5 0C7.49 0 1 6.49 1 14.5C1 25.5 15.5 42 15.5 42C15.5 42 30 25.5 30 14.5C30 6.49 23.51 0 15.5 0Z" fill="#EF4444" stroke="#DC2626" stroke-width="1"/>
+        <!-- Inner circle -->
+        <circle cx="15.5" cy="14.5" r="6.5" fill="white"/>
+        <!-- Pulse dot -->
+        <circle cx="15.5" cy="14.5" r="3" fill="#EF4444"/>
+      </svg>
+    </div>
+  `,
+  iconSize: [32, 44],
+  iconAnchor: [16, 44],
+  popupAnchor: [0, -44],
+  tooltipAnchor: [16, -22],
+});
+
+// Provider marker (Green)
+const providerIcon = L.divIcon({
+  className: 'custom-provider-marker',
+  html: `
+    <div style="position: relative; display: flex; align-items: center; justify-content: center;">
+      <svg width="32" height="44" viewBox="0 0 32 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Pin shadow -->
+        <ellipse cx="15" cy="41" rx="8" ry="2.5" fill="rgba(0,0,0,0.15)"/>
+        <!-- Pin body -->
+        <path d="M15.5 0C7.49 0 1 6.49 1 14.5C1 25.5 15.5 42 15.5 42C15.5 42 30 25.5 30 14.5C30 6.49 23.51 0 15.5 0Z" fill="#22C55E" stroke="#16A34A" stroke-width="1"/>
+        <!-- Inner circle -->
+        <circle cx="15.5" cy="14.5" r="6.5" fill="white"/>
+        <!-- Check mark -->
+        <path d="M12.5 15L14.5 17L18.5 13" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+  `,
+  iconSize: [32, 44],
+  iconAnchor: [16, 44],
+  popupAnchor: [0, -44],
+  tooltipAnchor: [16, -22],
+});
+
+// Default location marker (Blue)
+const defaultIcon = L.divIcon({
+  className: 'custom-default-marker',
+  html: `
+    <div style="position: relative; display: flex; align-items: center; justify-content: center;">
+      <svg width="32" height="44" viewBox="0 0 32 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Pin shadow -->
+        <ellipse cx="15" cy="41" rx="8" ry="2.5" fill="rgba(0,0,0,0.15)"/>
+        <!-- Pin body -->
+        <path d="M15.5 0C7.49 0 1 6.49 1 14.5C1 25.5 15.5 42 15.5 42C15.5 42 30 25.5 30 14.5C30 6.49 23.51 0 15.5 0Z" fill="#3B82F6" stroke="#2563EB" stroke-width="1"/>
+        <!-- Inner circle -->
+        <circle cx="15.5" cy="14.5" r="6.5" fill="white"/>
+        <!-- Star -->
+        <text x="15.5" y="17.5" text-anchor="middle" font-size="10" fill="#3B82F6">★</text>
+      </svg>
+    </div>
+  `,
+  iconSize: [32, 44],
+  iconAnchor: [16, 44],
+  popupAnchor: [0, -44],
+  tooltipAnchor: [16, -22],
+});
+
+// Fix default Leaflet icon issue
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
-  iconUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
-  shadowUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
-});
-
-// Custom red icon for user location
-const userLocationIcon = new L.Icon({
-  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png",
+  iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
+  iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
   shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
 });
 
-// Custom green icon for providers
-const providerIcon = new L.Icon({
-  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png",
-  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
-
-// Create a custom blue icon for default location (when user location isn't available)
-const defaultIcon = new L.Icon({
-  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
-  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
-
-// Generate random nearby coordinates for demo/filler purposes
+// Generate random nearby coordinates for providers without location data
 function generateNearbyLocation(baseLat, baseLng, maxOffset = 0.05) {
   return [
     baseLat + (Math.random() - 0.5) * maxOffset * 2,
@@ -59,7 +97,7 @@ function MapBounds({ userLocation, providers }) {
   const map = useMap();
 
   useEffect(() => {
-    if (!userLocation && (!providers || providers.length === 0)) return;
+    if (!map) return;
 
     const bounds = [];
     
@@ -81,7 +119,9 @@ function MapBounds({ userLocation, providers }) {
     if (bounds.length > 0) {
       map.fitBounds(bounds, { 
         padding: [50, 50],
-        maxZoom: 15 
+        maxZoom: 15,
+        animate: true,
+        duration: 0.5
       });
     }
   }, [map, userLocation, providers]);
@@ -131,7 +171,7 @@ export default function MapComponent({
     }
   }, [userLocation]);
 
-  // Enrich providers without coordinates with nearby random locations for demo
+  // Enrich providers without coordinates with generated locations
   const providersWithLocations = useMemo(() => {
     if (!providers || providers.length === 0) return [];
     
@@ -147,7 +187,7 @@ export default function MapComponent({
         ...provider,
         latitude: genLat,
         longitude: genLng,
-        _generatedLocation: true // Flag to show this is approximated
+        _generatedLocation: true
       };
     });
   }, [providers, position]);
@@ -157,29 +197,47 @@ export default function MapComponent({
   return (
     <div className="relative h-96 w-full rounded-2xl shadow-xl overflow-hidden">
       {/* Legend */}
-      <div className="absolute top-2 right-2 z-10 bg-white/90 backdrop-blur-sm rounded-lg p-2 shadow-md text-xs">
-        <div className="flex items-center gap-2 mb-1">
-          <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-          <span className="text-gray-700">Your Location</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-          <span className="text-gray-700">Providers ({providersWithLocations.length})</span>
+      <div className="absolute top-3 right-3 z-10 bg-white/95 backdrop-blur-sm rounded-xl p-3 shadow-lg border border-gray-200">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded-full bg-red-500 shadow-sm"></div>
+            <span className="text-xs font-medium text-gray-700">Your Location</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded-full bg-green-500 shadow-sm"></div>
+            <span className="text-xs font-medium text-gray-700">
+              Providers ({providersWithLocations.length})
+            </span>
+          </div>
+          {!hasUserLocation && (
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded-full bg-blue-500 shadow-sm"></div>
+              <span className="text-xs font-medium text-gray-700">Default (Dhaka)</span>
+            </div>
+          )}
         </div>
       </div>
 
       {error && (
-        <div className="absolute top-2 left-2 bg-amber-500 text-white px-4 py-2 rounded-md z-10 text-sm shadow-lg">
+        <div className="absolute top-3 left-3 bg-amber-500 text-white px-4 py-2.5 rounded-xl z-10 text-sm shadow-lg flex items-center gap-2">
+          <span>⚠️</span>
           {error}
         </div>
       )}
 
       {locationLoaded && (
         <>
-          <MapContainer center={position} zoom={13} className="h-full w-full">
+          <MapContainer 
+            center={position} 
+            zoom={13} 
+            className="h-full w-full"
+            zoomControl={true}
+            scrollWheelZoom={true}
+          >
             <TileLayer
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              crossOrigin=""
             />
 
             {/* Auto-fit bounds to show all markers */}
@@ -190,31 +248,32 @@ export default function MapComponent({
 
             {/* User Location Marker (Red) */}
             {hasUserLocation && (
-              <Marker position={position} icon={userLocationIcon}>
-                <Popup>
-                  <div className="text-center">
-                    <div className="font-semibold text-red-600 mb-1">📍 Your Location</div>
-                    <div className="text-xs text-gray-600">
-                      {position[0].toFixed(4)}, {position[1].toFixed(4)}
+              <>
+                <Marker position={position} icon={userLocationIcon}>
+                  <Popup>
+                    <div className="text-center min-w-[150px]">
+                      <div className="font-semibold text-red-600 mb-1">📍 Your Location</div>
+                      <div className="text-xs text-gray-600 mb-1">
+                        {position[0].toFixed(4)}, {position[1].toFixed(4)}
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        {providersWithLocations.length} provider(s) nearby
+                      </div>
                     </div>
-                  </div>
-                </Popup>
-              </Marker>
-            )}
-
-            {/* User Location Circle */}
-            {hasUserLocation && (
-              <Circle 
-                center={position} 
-                radius={500} 
-                pathOptions={{ 
-                  color: "red", 
-                  fillColor: "#ff0000", 
-                  fillOpacity: 0.1,
-                  weight: 1,
-                  dashArray: "5, 5"
-                }} 
-              />
+                  </Popup>
+                </Marker>
+                <Circle 
+                  center={position} 
+                  radius={500} 
+                  pathOptions={{ 
+                    color: "#EF4444", 
+                    fillColor: "#EF4444", 
+                    fillOpacity: 0.08,
+                    weight: 1.5,
+                    dashArray: "5, 5"
+                  }} 
+                />
+              </>
             )}
 
             {/* Provider Markers (Green) */}
@@ -225,57 +284,62 @@ export default function MapComponent({
                 icon={providerIcon}
               >
                 <Popup>
-                  <div className="min-w-[180px]">
-                    <div className="flex items-center gap-2 mb-2">
+                  <div className="min-w-[200px] max-w-[280px]">
+                    {/* Provider Header */}
+                    <div className="flex items-center gap-3 mb-3 pb-3 border-b border-gray-100">
                       {provider.userPhoto ? (
                         <img 
                           src={provider.userPhoto} 
                           alt={provider.name}
-                          className="w-10 h-10 rounded-full object-cover border-2 border-green-500"
+                          className="w-11 h-11 rounded-full object-cover border-2 border-green-500 shadow-sm"
                           onError={(e) => {
-                            e.target.onerror = null;
                             e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'flex';
                           }}
                         />
-                      ) : (
-                        <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-green-200 rounded-full flex items-center justify-center border-2 border-green-500">
-                          <span className="text-sm font-bold text-green-600">
-                            {provider.name?.charAt(0) || "P"}
-                          </span>
-                        </div>
-                      )}
-                      <div>
-                        <div className="font-semibold text-gray-900 text-sm">
+                      ) : null}
+                      <div 
+                        className={`w-11 h-11 bg-gradient-to-br from-green-100 to-green-200 rounded-full items-center justify-center border-2 border-green-500 shadow-sm ${
+                          provider.userPhoto ? 'hidden' : 'flex'
+                        }`}
+                      >
+                        <span className="text-base font-bold text-green-600">
+                          {provider.name?.charAt(0) || "P"}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-gray-900 text-sm truncate">
                           {provider.name || "Provider"}
                         </div>
-                        <div className="text-xs text-green-600 font-medium">
+                        <div className="text-xs text-green-600 font-medium capitalize">
                           {provider.category || "Service"}
                         </div>
                       </div>
                     </div>
 
-                    <div className="space-y-1 text-xs text-gray-600">
+                    {/* Provider Details */}
+                    <div className="space-y-1.5 text-xs text-gray-600">
                       {provider.city && (
-                        <div className="flex items-center gap-1">
-                          <span>📍</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-400">📍</span>
                           <span>{provider.city}</span>
                         </div>
                       )}
                       {provider.hourlyRate && (
-                        <div className="flex items-center gap-1">
-                          <span>💰</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-400">💰</span>
                           <span className="font-semibold text-green-600">৳{provider.hourlyRate}/hr</span>
                         </div>
                       )}
                       {provider.rating && (
-                        <div className="flex items-center gap-1">
-                          <span>⭐</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-400">⭐</span>
                           <span>{provider.rating} ({provider.reviewCount || 0} reviews)</span>
                         </div>
                       )}
                       {provider.distance !== undefined && (
-                        <div className="flex items-center gap-1">
-                          <span>📏</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-400">📏</span>
                           <span className="font-semibold text-blue-600">
                             {provider.distance < 1 
                               ? `${(provider.distance * 1000).toFixed(0)}m away` 
@@ -284,9 +348,25 @@ export default function MapComponent({
                         </div>
                       )}
                       {provider._generatedLocation && (
-                        <div className="text-amber-600 italic text-[10px] mt-1">
-                          ⚠️ Approximate location
+                        <div className="flex items-center gap-2 text-amber-600">
+                          <span>⚠️</span>
+                          <span className="italic">Approximate location</span>
                         </div>
+                      )}
+                    </div>
+
+                    {/* Status */}
+                    <div className="mt-2 pt-2 border-t border-gray-100">
+                      {provider.isActive !== false ? (
+                        <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium">
+                          <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                          Available
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs text-red-600 font-medium">
+                          <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
+                          Unavailable
+                        </span>
                       )}
                     </div>
                   </div>
@@ -294,16 +374,16 @@ export default function MapComponent({
               </Marker>
             ))}
 
-            {/* Provider Radius Circles */}
+            {/* Provider Radius Circles (limit to first 10 for performance) */}
             {providersWithLocations.slice(0, 10).map((provider, index) => (
               <Circle 
                 key={`circle-${provider.id || index}`}
                 center={[provider.latitude, provider.longitude]}
                 radius={200}
                 pathOptions={{ 
-                  color: "green", 
-                  fillColor: "#22c55e", 
-                  fillOpacity: 0.05,
+                  color: "#22C55E", 
+                  fillColor: "#22C55E", 
+                  fillOpacity: 0.04,
                   weight: 1
                 }}
               />
@@ -311,29 +391,37 @@ export default function MapComponent({
           </MapContainer>
 
           {/* Floating Location Card */}
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-md text-black rounded-xl p-3 px-4 flex items-center space-x-3 shadow-lg animate-fade-in">
-            <div className={`w-4 h-4 rounded-full animate-pulse ${
-              hasUserLocation ? 'bg-green-400' : 'bg-blue-400'
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-md text-black rounded-xl py-2.5 px-4 flex items-center space-x-3 shadow-lg border border-gray-200 animate-fade-in pointer-events-none">
+            <div className={`w-3 h-3 rounded-full animate-pulse shadow-sm ${
+              hasUserLocation ? 'bg-green-500' : 'bg-blue-500'
             }`}></div>
             <div>
-              <div className="text-sm font-semibold">
+              <div className="text-sm font-semibold text-gray-900">
                 {hasUserLocation ? "Your Location" : "Default Location (Dhaka)"}
               </div>
-              <div className="text-xs">
+              <div className="text-xs text-gray-500">
                 {position[0].toFixed(4)}, {position[1].toFixed(4)}
-                {!hasUserLocation && " • Enable location for better results"}
               </div>
             </div>
           </div>
 
           {/* Provider Count Badge */}
           {hasProviderLocations && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-green-600 text-white rounded-full px-4 py-1.5 text-sm font-medium shadow-lg flex items-center gap-2">
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-green-600 text-white rounded-full px-4 py-2 text-sm font-medium shadow-lg z-10 flex items-center gap-2">
               <span>📍</span>
               <span>{providersWithLocations.length} provider{providersWithLocations.length !== 1 ? 's' : ''} on map</span>
             </div>
           )}
         </>
+      )}
+
+      {!locationLoaded && (
+        <div className="h-full w-full flex items-center justify-center bg-gray-100">
+          <div className="text-center">
+            <div className="w-10 h-10 border-3 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+            <p className="text-gray-500 text-sm">Loading map...</p>
+          </div>
+        </div>
       )}
     </div>
   );
