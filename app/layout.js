@@ -15,7 +15,22 @@ export default function RootLayout({ children }) {
     <html lang="bn" suppressHydrationWarning>
       <head>
         <meta name="format-detection" content="telephone=no, date=no, email=no, address=no" />
+
+        {/* ✅ JSON-LD Schema (Organization) */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              "name": "KaazBazar",
+              "url": "https://kaazbazar.com",
+              "logo": "https://kaazbazar.com/favicon.ico"
+            }),
+          }}
+        />
       </head>
+
       <body className="antialiased">
         <LanguageProvider>
           <AuthProvider>
