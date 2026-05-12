@@ -1,24 +1,112 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 
+  <!-- Main Services Page -->
   <url>
-    <loc>https://kaazbazar.com/</loc>
+    <loc>https://kaazbazar.com/services/</loc>
     <priority>1.0</priority>
   </url>
 
-  <url>
-    <loc>https://kaazbazar.com/about</loc>
-    <priority>0.8</priority>
-  </url>
+  <!-- Service Categories -->
 
   <url>
-    <loc>https://kaazbazar.com/contact</loc>
-    <priority>0.8</priority>
-  </url>
-
-  <url>
-    <loc>https://kaazbazar.com/services</loc>
+    <loc>https://kaazbazar.com/services/electrician</loc>
     <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://kaazbazar.com/services/plumber</loc>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://kaazbazar.com/services/ac-service</loc>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://kaazbazar.com/services/carpenter</loc>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://kaazbazar.com/services/painter</loc>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://kaazbazar.com/services/deep-cleaning</loc>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://kaazbazar.com/services/glass-cleaner</loc>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://kaazbazar.com/services/water-tank-cleaning</loc>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://kaazbazar.com/services/home-shifting</loc>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://kaazbazar.com/services/cctv-setup</loc>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://kaazbazar.com/services/internet-setup</loc>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://kaazbazar.com/services/home-tutor</loc>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://kaazbazar.com/services/driver</loc>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://kaazbazar.com/services/tailor</loc>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://kaazbazar.com/services/salon-at-home</loc>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://kaazbazar.com/services/generator-service</loc>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://kaazbazar.com/services/fridge-repair</loc>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://kaazbazar.com/services/sofa-cleaning</loc>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://kaazbazar.com/services/packers-movers</loc>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://kaazbazar.com/services/event-decoration</loc>
+    <priority>0.8</priority>
   </url>
 
 </urlset>
