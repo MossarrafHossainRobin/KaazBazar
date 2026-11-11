@@ -5,7 +5,10 @@ import { useEffect } from "react";
 
 export default function PWARegister() {
   useEffect(() => {
-    if (!("serviceWorker" in navigator)) {
+    if (
+      typeof window === "undefined" ||
+      !("serviceWorker" in navigator)
+    ) {
       return;
     }
 
@@ -13,27 +16,20 @@ export default function PWARegister() {
       return;
     }
 
-    const registerWorker = async () => {
-      try {
-        const registration =
-          await navigator.serviceWorker.register("/sw.js", {
-            scope: "/",
-            updateViaCache: "none",
-          });
-
+    navigator.serviceWorker
+      .register("/sw.js", { scope: "/" })
+      .then((registration) => {
         console.log(
           "KaazBazar PWA registered:",
           registration.scope
         );
-      } catch (error) {
+      })
+      .catch((error) => {
         console.error(
-          "KaazBazar PWA registration failed:",
+          "PWA registration failed:",
           error
         );
-      }
-    };
-
-    registerWorker();
+      });
   }, []);
 
   return null;
