@@ -6,14 +6,11 @@ export default function manifest() {
     short_name: "KaazBazar",
     description:
       "KaazBazar - Your Trusted Local Service Marketplace",
-
     start_url: "/",
     scope: "/",
-
     display: "standalone",
     background_color: "#ffffff",
-    theme_color: "#0f766e",
-
+    theme_color: "#ff6500",
     icons: [
       {
         src: "/icon-192.png",
