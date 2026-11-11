@@ -4,6 +4,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { AdminAuthProvider } from "@/context/AdminAuthContext";
 import ClientProviders from "@/components/ClientProviders";
 import PWARegister from "@/components/PWARegister";
+import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import "./globals.css";
 
 // ==========================================
@@ -218,10 +219,21 @@ export default function RootLayout({ children }) {
       </head>
 
       <body className="antialiased">
-        {/* PWA Service Worker Registration */}
+
+        {/* =====================================
+            PWA SERVICE WORKER REGISTRATION
+        ===================================== */}
         <PWARegister />
 
-        {/* Language Provider */}
+        {/* =====================================
+            MOBILE APP INSTALLATION POPUP
+            Android + iOS
+        ===================================== */}
+        <PWAInstallPrompt />
+
+        {/* =====================================
+            LANGUAGE PROVIDER
+        ===================================== */}
         <LanguageProvider>
 
           {/* Firebase Authentication */}
@@ -238,6 +250,7 @@ export default function RootLayout({ children }) {
             </AdminAuthProvider>
           </AuthProvider>
         </LanguageProvider>
+
       </body>
     </html>
   );
